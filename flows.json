@@ -22,5 +22,151 @@
         "x": 480,
         "y": 340,
         "wires": []
+    },
+    {
+        "id": "andonTab",
+        "type": "tab",
+        "label": "Andon Main Assy",
+        "disabled": false,
+        "info": "Backend dummy tablet andon + siaran ke dashboard (/ws/andon)."
+    },
+    {
+        "id": "andonWsL",
+        "type": "websocket-listener",
+        "path": "/ws/andon",
+        "wholemsg": "false"
+    },
+    {
+        "id": "andonCmt",
+        "type": "comment",
+        "z": "andonTab",
+        "name": "Tablet -> HTTP /andon/*  |  Dashboard <- WebSocket /ws/andon (tiap 1 detik + saat ada perubahan)",
+        "info": "Akun dummy: operator1@dummy.local / operator1 , operator2@dummy.local / operator2",
+        "x": 330,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "andonGet",
+        "type": "http in",
+        "z": "andonTab",
+        "name": "GET /andon/:action",
+        "url": "/andon/:action",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "andonApi"
+            ]
+        ]
+    },
+    {
+        "id": "andonPost",
+        "type": "http in",
+        "z": "andonTab",
+        "name": "POST /andon/:action",
+        "url": "/andon/:action",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "andonApi"
+            ]
+        ]
+    },
+    {
+        "id": "andonApi",
+        "type": "function",
+        "z": "andonTab",
+        "name": "api andon",
+        "func": "// BACKEND DUMMY andon untuk tablet. State di memori global Node-RED (hilang saat Node-RED restart).\r\n// ponytail: data dummy dalam kode. Ganti ke database/API asli kalau sudah ada.\r\nconst STATIONS = [\r\n  ['MA-1-LH', 'Main Assy-1-LH'], ['MA-1-RH', 'Main Assy-1-RH'], ['MA-3-LH', 'Main Assy-3-LH'],\r\n  ['MA-3-RH', 'Main Assy-3-RH'], ['MA-5-LH', 'Main Assy-5-LH'], ['MA-5-RH', 'Main Assy-5-RH'],\r\n  ['MA-6-LH', 'Main Assy-6-LH'], ['MA-7-RH', 'Main Assy-7-RH'], ['MA-8-LH', 'Main Assy-8-LH'],\r\n  ['MA-8-RH', 'Main Assy-8-RH'], ['MA-9-RH', 'Main Assy-9-RH'], ['MA-10-LH', 'Main Assy-10-LH'],\r\n  ['MA-11-LH', 'Main Assy-11-LH'], ['MA-11-RH', 'Main Assy-11-RH'], ['MA-12-LH', 'Main Assy-12-LH'],\r\n  ['MA-13-RH', 'Main Assy-13-RH'], ['MA-14-LH', 'Main Assy-14-LH'], ['MA-15-RH', 'Main Assy-15-RH'],\r\n  ['MA-16-LH', 'Main Assy-16-LH']\r\n].map(([code, name]) => ({ code, name }));\r\n\r\nconst CATALOG = [\r\n  { key: 'quality', name: 'Quality', reasons: ['Part NG / reject', 'Dimensi di luar toleransi', 'Cacat visual', 'Torque tidak sesuai'] },\r\n  { key: 'logistic', name: 'Logistic', reasons: ['Part habis', 'Part salah kirim', 'Part terlambat', 'Trolley kosong'] },\r\n  { key: 'equipment', name: 'Equipment', reasons: ['Mesin berhenti', 'Tool rusak', 'Sensor error', 'Tekanan angin turun'] },\r\n  { key: 'process', name: 'Process', reasons: ['Operator kurang', 'Cycle time terlalu lama', 'Instruksi kerja tidak jelas', 'Setting ulang proses'] }\r\n];\r\n\r\nconst ACCOUNTS = [\r\n  { email: 'operator1@dummy.local', password: 'operator1', name: 'Operator Satu' },\r\n  { email: 'operator2@dummy.local', password: 'operator2', name: 'Operator Dua' }\r\n];\r\n\r\nconst path = '/andon/' + msg.req.params.action;\r\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\r\nconst reply = (code, payload) => { msg.statusCode = code; msg.payload = payload; return [msg, null]; };\r\n\r\nif (path === '/andon/stations') return reply(200, STATIONS);\r\n\r\nif (path === '/andon/login') {\r\n  const ok = typeof body.email === 'string' && typeof body.password === 'string';\r\n  const acc = ok && ACCOUNTS.find(a => a.email === body.email.trim().toLowerCase() && a.password === body.password);\r\n  if (!acc) return reply(401, { message: 'Incorrect email or password.' });\r\n  // ponytail: token acak seadanya (dummy). Ganti JWT/sesi asli saat login sungguhan.\r\n  const token = Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);\r\n  const tokens = global.get('andonTokens') || {};\r\n  tokens[token] = { email: acc.email, name: acc.name };\r\n  global.set('andonTokens', tokens);\r\n  return reply(200, { token, name: acc.name });\r\n}\r\n\r\n// semua di bawah ini wajib login\r\nconst bearer = String(msg.req.headers.authorization || '').replace(/^Bearer /, '');\r\nconst user = (global.get('andonTokens') || {})[bearer];\r\nif (!user) return reply(401, { message: 'Unauthorized' });\r\n\r\nif (path === '/andon/catalog') return reply(200, CATALOG);\r\n\r\nconst station = String(path === '/andon/state' ? (msg.req.query.station || '') : (body.station || ''));\r\nif (!STATIONS.some(s => s.code === station)) return reply(400, { message: 'Station tidak dikenal' });\r\n\r\nconst now = Date.now();\r\nconst events = (global.get('andonEvents') || []).filter(e => !e.end || now - e.start < 48 * 3600e3);\r\nconst active = events.find(e => !e.end && e.station === station);\r\n\r\nif (path === '/andon/start') {\r\n  const cat = CATALOG.find(c => c.key === body.category);\r\n  if (!cat || !cat.reasons.includes(body.reason)) return reply(400, { message: 'Kategori atau alasan tidak valid' });\r\n  if (active) return reply(409, { message: 'Andon masih aktif di station ini. Stop dulu.' });\r\n  events.push({ station, category: cat.key, reason: body.reason, operator: user.name, start: now, end: null });\r\n} else if (path === '/andon/stop') {\r\n  if (!active) return reply(409, { message: 'Tidak ada andon aktif di station ini.' });\r\n  active.end = now;\r\n  active.stoppedBy = user.name;\r\n}\r\n\r\nglobal.set('andonEvents', events);\r\nmsg.station = station;\r\nreturn [null, msg];   // lanjut ke \"ringkasan\" untuk balasan + siaran dashboard\r\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 150,
+        "wires": [
+            [
+                "andonRes"
+            ],
+            [
+                "andonSum"
+            ]
+        ]
+    },
+    {
+        "id": "andonTick",
+        "type": "inject",
+        "z": "andonTab",
+        "name": "tiap 1 detik",
+        "props": [],
+        "repeat": "1",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "x": 150,
+        "y": 280,
+        "wires": [
+            [
+                "andonSum"
+            ]
+        ]
+    },
+    {
+        "id": "andonSum",
+        "type": "function",
+        "z": "andonTab",
+        "name": "ringkasan andon",
+        "func": "// Hitung ringkasan andon per kategori (seluruh line, hari ini WIB).\n// Dipanggil: tiap 1 detik (siaran dashboard), dan setelah state/start/stop dari tablet (balasan HTTP + siaran).\nconst SEC_PER_MIN = 60;   // dummy cepat: ubah ke 5 supaya menit cepat berubah saat uji\nconst CATS = ['quality', 'logistic', 'equipment', 'process'];\nconst now = Date.now();\nconst day = t => new Date(t + 7 * 3600e3).toISOString().slice(0, 10);   // tanggal WIB\nconst today = day(now);\nconst events = global.get('andonEvents') || [];\n\nconst dt = {}, secs = {}, running = {};\nfor (const c of CATS) { dt[c] = { active: false, count: 0, minutes: 0, station: '-' }; secs[c] = 0; running[c] = []; }\n\nfor (const e of events) {\n  if (e.end && day(e.start) !== today) continue;   // selesai di hari lain: abaikan (andon aktif lintas hari tetap dihitung)\n  dt[e.category].count++;\n  secs[e.category] += ((e.end || now) - e.start) / 1000;   // aktif: lama berjalan ikut dihitung\n  if (!e.end) running[e.category].push(e);\n}\nfor (const c of CATS) {\n  dt[c].minutes = Math.floor(secs[c] / SEC_PER_MIN);\n  const r = running[c].sort((a, b) => a.start - b.start);\n  if (r.length) {\n    dt[c].active = true;\n    dt[c].station = r[0].station + (r.length > 1 ? ' +' + (r.length - 1) : '');\n  }\n}\n\n// ponytail: 6 angka non-andon ini konstan (dummy). Ganti saat ada sumber data produksi.\nconst dashboard = { target: 92, assyOut: 55, efficiency: 90, jph: 12, ct: 5, handover: 34, downtime: dt, ts: new Date(now).toISOString() };\n\nconst toDashboard = { payload: dashboard };   // tanpa req/res: disiarkan ke semua dashboard\nif (!msg.res) return [null, toDashboard];     // dari timer\n\nconst a = events.find(e => !e.end && e.station === msg.station);\nmsg.payload = {\n  active: a ? { category: a.category, reason: a.reason, start: a.start, operator: a.operator } : null,\n  downtime: dt,\n  now\n};\nreturn [msg, toDashboard];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 200,
+        "wires": [
+            [
+                "andonRes"
+            ],
+            [
+                "andonWs"
+            ]
+        ]
+    },
+    {
+        "id": "andonRes",
+        "type": "http response",
+        "z": "andonTab",
+        "name": "",
+        "statusCode": "",
+        "headers": {
+            "content-type": "application/json"
+        },
+        "x": 810,
+        "y": 150,
+        "wires": []
+    },
+    {
+        "id": "andonWs",
+        "type": "websocket out",
+        "z": "andonTab",
+        "name": "ke dashboard",
+        "server": "andonWsL",
+        "client": "",
+        "x": 810,
+        "y": 250,
+        "wires": []
     }
 ]
