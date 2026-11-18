@@ -168,5 +168,128 @@
         "x": 810,
         "y": 250,
         "wires": []
+    },
+    {
+        "id": "qcTab",
+        "type": "tab",
+        "label": "QC Tablet",
+        "disabled": false,
+        "info": "Backend dummy tablet QC (terpisah dari andon): HTTP /qc/:action dan siaran WebSocket /ws/qc ke dashboard."
+    },
+    {
+        "id": "qcWsL",
+        "type": "websocket-listener",
+        "path": "/ws/qc",
+        "wholemsg": "false"
+    },
+    {
+        "id": "qcCmt",
+        "type": "comment",
+        "z": "qcTab",
+        "name": "Tablet QC -> HTTP /qc/*  |  Dashboard <- WebSocket /ws/qc (tiap 1 detik + saat ada perubahan)",
+        "info": "Aksi: catalog, state (GET); scan, finish, cancel, reset (POST). VIN dummy: VINALVA00000000001..099.",
+        "x": 330,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "qcGet",
+        "type": "http in",
+        "z": "qcTab",
+        "name": "GET /qc/:action",
+        "url": "/qc/:action",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "qcCore"
+            ]
+        ]
+    },
+    {
+        "id": "qcPost",
+        "type": "http in",
+        "z": "qcTab",
+        "name": "POST /qc/:action",
+        "url": "/qc/:action",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "qcCore"
+            ]
+        ]
+    },
+    {
+        "id": "qcTick",
+        "type": "inject",
+        "z": "qcTab",
+        "name": "tiap 1 detik",
+        "props": [],
+        "repeat": "1",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "x": 150,
+        "y": 260,
+        "wires": [
+            [
+                "qcCore"
+            ]
+        ]
+    },
+    {
+        "id": "qcCore",
+        "type": "function",
+        "z": "qcTab",
+        "name": "api + ringkasan QC",
+        "func": "// BACKEND DUMMY tablet QC + siaran ke dashboard (/ws/qc). State di memori global Node-RED (hilang saat restart).\n// Terpisah dari andon. Satu function untuk semua: HTTP /qc/:action dan timer 1 detik.\n// ponytail: data dummy dalam kode. Ganti ke database/API asli kalau sudah ada.\nconst STATION = 'Fit Finish';\nconst OPERATOR = 'Operator QC';\nconst SESSION_MS = 15 * 60e3;   // sesi diam > 15 menit dilepas otomatis\nconst M = 60e3;\n\nconst ALL = ['Misassembled', 'Missing Part', 'Over cutting', 'Peel-Off', 'Poor Repair', 'Scratch', 'Stain', 'Tear', 'Touch Mark', 'Wrong Position', 'Wrong specification'];\nconst GEN = ['Misassembled', 'Missing Part', 'Scratch', 'Stain', 'Touch Mark', 'Wrong Position'];\n// [id, nama, berkas foto di tablet QC/public/parts/<x>.png (kosong = ikon), defect khusus + umum]\nconst PARTS = [\n  ['p1', 'Body Cover RH', 'body-cover-rh', ['Gap-Above', ...ALL]],\n  ['p2', 'Body Cover LH', 'body-cover-lh', ['Gap-Above', ...ALL]],\n  ['p3', 'Rear Mud Guard', 'rear-mud-guard', ['Misalignment', ...GEN]],\n  ['p4', 'Speedometer', 'speedometer', ['Gate Blush', ...GEN]],\n  ['p5', 'Steering Cover Rear', 'steering-cover-rear', ['Touching', ...GEN]],\n  ['p6', 'Rear Handle RH', 'rear-handle-rh', ['Damage', ...GEN]],\n  ['p7', 'Keyless SET', 'keyless-set', ['Gap-Above', 'Flush', ...GEN]],\n  ['p8', 'Foot Step LH', 'foot-step-lh', ['Touching', ...GEN]],\n  ['p9', 'Foot Step RH', 'foot-step-rh', ['Abnormal Function', ...GEN]],\n  ['p10', 'Horn', '', ['Abnormal Sound', ...GEN]]\n].map(([id, name, image, d], i) => ({ id, no: i + 1, name, image, defects: [...new Set(d)].sort() }));\nconst PN = Object.fromEntries(PARTS.map(p => [p.id, p.name]));\n\n// VIN dummy: VINALVA + 11 digit, nomor 1..99 valid. Model bergilir. 004 sudah selesai, 005 sedang dikerjakan, 006 menunggu repair.\nconst MODELS = ['Alva N3 Basic LFP 2026 1Batt B2B Grab White', 'Alva N3 Plus LFP 2026 2Batt Matte Black', 'Alva CervoX LFP 2026 1Batt Shadow Black'];\nconst unitOf = vin => {\n  const m = /^VINALVA(\\d{11})$/.exec(vin);\n  const n = m ? parseInt(m[1], 10) : 0;\n  return n >= 1 && n <= 99 ? { vin, model: MODELS[(n - 1) % 3], family: (n - 1) % 3 === 2 ? 'CERVO' : 'N3' } : null;\n};\n\n// Data awal supaya dashboard tidak kosong: 70 inspeksi 9 jam terakhir (30 NG, 40 GOOD). VIN riwayat (nomor > 99) tidak bisa di-scan.\nconst fresh = now => {\n  const w = [['p3', 'Misalignment', 14], ['p4', 'Gate Blush', 11], ['p5', 'Touching', 9], ['p1', 'Gap-Above', 8], ['p6', 'Damage', 7],\n    ['p2', 'Gap-Above', 6], ['p7', 'Gap-Above', 5], ['p8', 'Touching', 4], ['p7', 'Flush', 3], ['p9', 'Abnormal Function', 2]];\n  const flat = [];\n  w.forEach(([partId, defect, c]) => { for (let i = 0; i < c; i++) flat.push({ partId, defect }); });\n  const results = [];\n  let k = 0;\n  for (let i = 0; i < 70; i++) {\n    const bad = i % 7 < 3;\n    const ng = bad ? flat.filter((_, j) => j % 30 === k) : [];\n    if (bad) k++;\n    results.push({ id: 's' + i, vin: 'VINALVA' + String(100 + i).padStart(11, '0'), model: MODELS[i % 3], at: now - (i + 1) * 8 * M,\n      operator: OPERATOR, status: bad ? 'NOT_GOOD' : 'GOOD', ng, seconds: 40 + (i * 7) % 50 });\n  }\n  return {\n    units: { VINALVA00000000004: 'finalized', VINALVA00000000006: 'repair' },\n    sessions: [{ vin: 'VINALVA00000000005', deviceId: 'seed', operator: 'Operator QC 2', start: now, sticky: true }],\n    results\n  };\n};\n\nconst now = Date.now();\nlet S = global.get('qc');\nif (!S) S = fresh(now);\nS.sessions = S.sessions.filter(s => s.sticky || now - s.start < SESSION_MS);\n\nconst summary = () => {\n  const rs = S.results.filter(r => r.at >= now - 24 * 3600e3);\n  const good = rs.filter(r => r.status === 'GOOD').length;\n  const cnt = new Map();\n  for (const r of rs) for (const g of r.ng) { const k = g.partId + '|' + g.defect; cnt.set(k, (cnt.get(k) || 0) + 1); }\n  const top = [...cnt].map(([k, count]) => { const [partId, defect] = k.split('|'); return { partId, part: PN[partId], defect, count }; })\n    .sort((a, b) => b.count - a.count || a.part.localeCompare(b.part)).slice(0, 10);\n  return {\n    station: STATION,\n    totals: { inspected: rs.length, good, notGood: rs.length - good, okRate: rs.length ? Math.round(good / rs.length * 1000) / 10 : 0 },\n    top,\n    byPart: PARTS.map(p => ({ partId: p.id, part: p.name, count: rs.reduce((n, r) => n + r.ng.filter(g => g.partId === p.id).length, 0) })),\n    active: S.sessions.map(s => ({ vin: s.vin, operator: s.operator, since: s.start })),\n    recent: rs.slice(0, 10).map(r => ({ vin: r.vin, model: r.model, at: r.at, status: r.status, ng: r.ng.length })),\n    now, ts: new Date(now).toISOString()\n  };\n};\nconst broadcast = () => ({ payload: summary() });\n\n// timer: hanya siaran ke dashboard\nif (!msg.req) { global.set('qc', S); return [null, broadcast()]; }\n\nconst action = msg.req.params.action;\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nconst reply = (code, payload, bc) => { msg.statusCode = code; msg.payload = payload; global.set('qc', S); return [msg, bc ? broadcast() : null]; };\nconst fail = (code, errCode, message) => reply(code, { code: errCode, message }, false);\n\nif (action === 'catalog') return reply(200, { station: STATION, operator: OPERATOR, parts: PARTS }, false);\nif (action === 'state') return reply(200, summary(), false);\n\nif (action === 'reset') { S = fresh(now); return reply(200, { ok: true }, true); }\n\nconst vin = typeof body.vin === 'string' ? body.vin.trim().toUpperCase() : '';\nconst dev = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 64) : '';\n\nif (action === 'scan') {\n  if (!/^[A-Z0-9]{10,20}$/.test(vin) || !dev) return fail(400, 'VIN_INVALID', 'Format VIN tidak valid. Periksa VIN lalu coba lagi.');\n  const unit = unitOf(vin);\n  if (!unit) return fail(404, 'VIN_NOT_FOUND', 'VIN tidak ditemukan. Periksa VIN dan akses stasiun.');\n  if (S.units[vin] === 'finalized') return fail(409, 'ALREADY_FINALIZED', 'VIN ini sudah selesai diperiksa (GOOD).');\n  if (S.units[vin] === 'repair') return fail(409, 'REPAIR_REQUIRED', 'VIN ini punya NG dan menunggu repair.');\n  const act = S.sessions.find(s => s.vin === vin);\n  if (act && act.deviceId !== dev) return fail(409, 'SESSION_ACTIVE', 'Ada sesi aktif untuk VIN ini di tablet lain.');\n  S.sessions = S.sessions.filter(s => s.deviceId !== dev);   // satu tablet satu sesi\n  S.sessions.push(act || { vin, deviceId: dev, operator: OPERATOR, start: now });\n  return reply(200, { unit }, true);\n}\n\nif (action === 'cancel') {\n  S.sessions = S.sessions.filter(s => !(s.vin === vin && s.deviceId === dev));\n  return reply(200, { ok: true }, true);\n}\n\nif (action === 'finish') {\n  const ses = S.sessions.find(s => s.vin === vin && s.deviceId === dev);\n  if (!ses) return fail(409, 'NO_SESSION', 'Sesi inspeksi tidak ditemukan atau sudah berakhir. Scan VIN lagi.');\n  if (!Array.isArray(body.ng) || body.ng.length > 60) return fail(400, 'NG_INVALID', 'Data NG tidak valid.');\n  const seen = new Set();\n  const ng = [];\n  for (const g of body.ng) {\n    const part = g && typeof g.partId === 'string' ? PARTS.find(p => p.id === g.partId) : null;\n    if (!part || typeof g.defect !== 'string' || !part.defects.includes(g.defect)) return fail(400, 'NG_INVALID', 'Defect tidak dikenal untuk part tersebut.');\n    const k = g.partId + '|' + g.defect;\n    if (!seen.has(k)) { seen.add(k); ng.push({ partId: g.partId, defect: g.defect }); }\n  }\n  const status = ng.length ? 'NOT_GOOD' : 'GOOD';\n  S.results.unshift({ id: now.toString(36), vin, model: unitOf(vin).model, at: now, operator: ses.operator, status, ng, seconds: Math.round((now - ses.start) / 1000) });\n  S.results = S.results.slice(0, 300);\n  S.units[vin] = status === 'GOOD' ? 'finalized' : 'repair';\n  S.sessions = S.sessions.filter(s => s !== ses);\n  return reply(200, { vin, status, ng }, true);\n}\n\nreturn fail(404, 'UNKNOWN_ACTION', 'Aksi tidak dikenal.');\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 190,
+        "wires": [
+            [
+                "qcRes"
+            ],
+            [
+                "qcWs"
+            ]
+        ]
+    },
+    {
+        "id": "qcRes",
+        "type": "http response",
+        "z": "qcTab",
+        "name": "",
+        "statusCode": "",
+        "headers": {
+            "content-type": "application/json"
+        },
+        "x": 650,
+        "y": 150,
+        "wires": []
+    },
+    {
+        "id": "qcWs",
+        "type": "websocket out",
+        "z": "qcTab",
+        "name": "ke dashboard",
+        "server": "qcWsL",
+        "client": "",
+        "x": 650,
+        "y": 240,
+        "wires": []
     }
 ]
