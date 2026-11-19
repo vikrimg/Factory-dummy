@@ -8,6 +8,32 @@
         "env": []
     },
     {
+        "id": "546194d12c0fcb04",
+        "type": "tab",
+        "label": "Andon Main Assy",
+        "disabled": false,
+        "info": "Backend dummy tablet andon + siaran ke dashboard (/ws/andon)."
+    },
+    {
+        "id": "883978b2412abdb0",
+        "type": "tab",
+        "label": "QC Tablet",
+        "disabled": false,
+        "info": "Backend dummy tablet QC (terpisah dari andon): HTTP /qc/:action dan siaran WebSocket /ws/qc ke dashboard."
+    },
+    {
+        "id": "andonWsL",
+        "type": "websocket-listener",
+        "path": "/ws/andon",
+        "wholemsg": "false"
+    },
+    {
+        "id": "qcWsL",
+        "type": "websocket-listener",
+        "path": "/ws/qc",
+        "wholemsg": "false"
+    },
+    {
         "id": "1bb057348ac0ed34",
         "type": "debug",
         "z": "fb665e9b88f08935",
@@ -24,32 +50,19 @@
         "wires": []
     },
     {
-        "id": "andonTab",
-        "type": "tab",
-        "label": "Andon Main Assy",
-        "disabled": false,
-        "info": "Backend dummy tablet andon + siaran ke dashboard (/ws/andon)."
-    },
-    {
-        "id": "andonWsL",
-        "type": "websocket-listener",
-        "path": "/ws/andon",
-        "wholemsg": "false"
-    },
-    {
-        "id": "andonCmt",
+        "id": "16335abd0f12c203",
         "type": "comment",
-        "z": "andonTab",
-        "name": "Tablet -> HTTP /andon/*  |  Dashboard <- WebSocket /ws/andon (tiap 1 detik + saat ada perubahan)",
-        "info": "Akun dummy: operator1@dummy.local / operator1 , operator2@dummy.local / operator2",
+        "z": "546194d12c0fcb04",
+        "name": "Tablet -> HTTP /andon/*  |  Dashboard <- WebSocket /ws/andon  |  Admin produksi: /andon-admin",
+        "info": "Akun dummy: operator1@dummy.local / operator1 , operator2@dummy.local / operator2. Admin produksi: http://localhost:1880/andon-admin",
         "x": 330,
         "y": 40,
         "wires": []
     },
     {
-        "id": "andonGet",
+        "id": "e574c66c8660f1bc",
         "type": "http in",
-        "z": "andonTab",
+        "z": "546194d12c0fcb04",
         "name": "GET /andon/:action",
         "url": "/andon/:action",
         "method": "get",
@@ -59,14 +72,14 @@
         "y": 120,
         "wires": [
             [
-                "andonApi"
+                "5a60dae429ade0ec"
             ]
         ]
     },
     {
-        "id": "andonPost",
+        "id": "52d98cf2e53a68ab",
         "type": "http in",
-        "z": "andonTab",
+        "z": "546194d12c0fcb04",
         "name": "POST /andon/:action",
         "url": "/andon/:action",
         "method": "post",
@@ -76,16 +89,16 @@
         "y": 180,
         "wires": [
             [
-                "andonApi"
+                "5a60dae429ade0ec"
             ]
         ]
     },
     {
-        "id": "andonApi",
+        "id": "5a60dae429ade0ec",
         "type": "function",
-        "z": "andonTab",
+        "z": "546194d12c0fcb04",
         "name": "api andon",
-        "func": "// BACKEND DUMMY andon untuk tablet. State di memori global Node-RED (hilang saat Node-RED restart).\r\n// ponytail: data dummy dalam kode. Ganti ke database/API asli kalau sudah ada.\r\nconst STATIONS = [\r\n  ['MA-1-LH', 'Main Assy-1-LH'], ['MA-1-RH', 'Main Assy-1-RH'], ['MA-3-LH', 'Main Assy-3-LH'],\r\n  ['MA-3-RH', 'Main Assy-3-RH'], ['MA-5-LH', 'Main Assy-5-LH'], ['MA-5-RH', 'Main Assy-5-RH'],\r\n  ['MA-6-LH', 'Main Assy-6-LH'], ['MA-7-RH', 'Main Assy-7-RH'], ['MA-8-LH', 'Main Assy-8-LH'],\r\n  ['MA-8-RH', 'Main Assy-8-RH'], ['MA-9-RH', 'Main Assy-9-RH'], ['MA-10-LH', 'Main Assy-10-LH'],\r\n  ['MA-11-LH', 'Main Assy-11-LH'], ['MA-11-RH', 'Main Assy-11-RH'], ['MA-12-LH', 'Main Assy-12-LH'],\r\n  ['MA-13-RH', 'Main Assy-13-RH'], ['MA-14-LH', 'Main Assy-14-LH'], ['MA-15-RH', 'Main Assy-15-RH'],\r\n  ['MA-16-LH', 'Main Assy-16-LH']\r\n].map(([code, name]) => ({ code, name }));\r\n\r\nconst CATALOG = [\r\n  { key: 'quality', name: 'Quality', reasons: ['Part NG / reject', 'Dimensi di luar toleransi', 'Cacat visual', 'Torque tidak sesuai'] },\r\n  { key: 'logistic', name: 'Logistic', reasons: ['Part habis', 'Part salah kirim', 'Part terlambat', 'Trolley kosong'] },\r\n  { key: 'equipment', name: 'Equipment', reasons: ['Mesin berhenti', 'Tool rusak', 'Sensor error', 'Tekanan angin turun'] },\r\n  { key: 'process', name: 'Process', reasons: ['Operator kurang', 'Cycle time terlalu lama', 'Instruksi kerja tidak jelas', 'Setting ulang proses'] }\r\n];\r\n\r\nconst ACCOUNTS = [\r\n  { email: 'operator1@dummy.local', password: 'operator1', name: 'Operator Satu' },\r\n  { email: 'operator2@dummy.local', password: 'operator2', name: 'Operator Dua' }\r\n];\r\n\r\nconst path = '/andon/' + msg.req.params.action;\r\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\r\nconst reply = (code, payload) => { msg.statusCode = code; msg.payload = payload; return [msg, null]; };\r\n\r\nif (path === '/andon/stations') return reply(200, STATIONS);\r\n\r\nif (path === '/andon/login') {\r\n  const ok = typeof body.email === 'string' && typeof body.password === 'string';\r\n  const acc = ok && ACCOUNTS.find(a => a.email === body.email.trim().toLowerCase() && a.password === body.password);\r\n  if (!acc) return reply(401, { message: 'Incorrect email or password.' });\r\n  // ponytail: token acak seadanya (dummy). Ganti JWT/sesi asli saat login sungguhan.\r\n  const token = Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);\r\n  const tokens = global.get('andonTokens') || {};\r\n  tokens[token] = { email: acc.email, name: acc.name };\r\n  global.set('andonTokens', tokens);\r\n  // sesi operator -> tabel \"Duty Worker\" di dashboard. Login baru di station yang sama menutup sesi lama.\r\n  const station = STATIONS.some(s => s.code === body.station) ? body.station : '-';\r\n  const t = Date.now();\r\n  const sessions = global.get('andonSessions') || [];\r\n  sessions.forEach(x => { if (!x.end && station !== '-' && x.station === station) x.end = t; });\r\n  sessions.push({ token, name: acc.name, station, start: t, end: null });\r\n  global.set('andonSessions', sessions.slice(-60));\r\n  return reply(200, { token, name: acc.name });\r\n}\r\n\r\n// semua di bawah ini wajib login\r\nconst bearer = String(msg.req.headers.authorization || '').replace(/^Bearer /, '');\r\nconst user = (global.get('andonTokens') || {})[bearer];\r\nif (!user) return reply(401, { message: 'Unauthorized' });\r\n\r\nif (path === '/andon/catalog') return reply(200, CATALOG);\r\n\r\nif (path === '/andon/logout') {\r\n  const t = Date.now();\r\n  const sessions = global.get('andonSessions') || [];\r\n  sessions.forEach(x => { if (x.token === bearer && !x.end) x.end = t; });\r\n  global.set('andonSessions', sessions);\r\n  const tokens = global.get('andonTokens') || {};\r\n  delete tokens[bearer];\r\n  global.set('andonTokens', tokens);\r\n  return reply(200, { ok: true });\r\n}\r\n\r\nconst station = String(path === '/andon/state' ? (msg.req.query.station || '') : (body.station || ''));\r\nif (!STATIONS.some(s => s.code === station)) return reply(400, { message: 'Station tidak dikenal' });\r\n\r\nconst now = Date.now();\r\nconst events = (global.get('andonEvents') || []).filter(e => !e.end || now - e.start < 48 * 3600e3);\r\nconst active = events.find(e => !e.end && e.station === station);\r\n\r\nif (path === '/andon/start') {\r\n  const cat = CATALOG.find(c => c.key === body.category);\r\n  if (!cat || !cat.reasons.includes(body.reason)) return reply(400, { message: 'Kategori atau alasan tidak valid' });\r\n  if (active) return reply(409, { message: 'Andon masih aktif di station ini. Stop dulu.' });\r\n  events.push({ station, category: cat.key, reason: body.reason, operator: user.name, start: now, end: null });\r\n} else if (path === '/andon/stop') {\r\n  if (!active) return reply(409, { message: 'Tidak ada andon aktif di station ini.' });\r\n  active.end = now;\r\n  active.stoppedBy = user.name;\r\n}\r\n\r\nglobal.set('andonEvents', events);\r\nmsg.station = station;\r\nreturn [null, msg];   // lanjut ke \"ringkasan\" untuk balasan + siaran dashboard\r\n",
+        "func": "// BACKEND DUMMY andon untuk tablet. State di memori global Node-RED (hilang saat Node-RED restart).\r\n// ponytail: data dummy dalam kode. Ganti ke database/API asli kalau sudah ada.\r\nconst STATIONS = [\r\n  ['MA-1-LH', 'Main Assy-1-LH'], ['MA-1-RH', 'Main Assy-1-RH'], ['MA-3-LH', 'Main Assy-3-LH'],\r\n  ['MA-3-RH', 'Main Assy-3-RH'], ['MA-5-LH', 'Main Assy-5-LH'], ['MA-5-RH', 'Main Assy-5-RH'],\r\n  ['MA-6-LH', 'Main Assy-6-LH'], ['MA-7-RH', 'Main Assy-7-RH'], ['MA-8-LH', 'Main Assy-8-LH'],\r\n  ['MA-8-RH', 'Main Assy-8-RH'], ['MA-9-RH', 'Main Assy-9-RH'], ['MA-10-LH', 'Main Assy-10-LH'],\r\n  ['MA-11-LH', 'Main Assy-11-LH'], ['MA-11-RH', 'Main Assy-11-RH'], ['MA-12-LH', 'Main Assy-12-LH'],\r\n  ['MA-13-RH', 'Main Assy-13-RH'], ['MA-14-LH', 'Main Assy-14-LH'], ['MA-15-RH', 'Main Assy-15-RH'],\r\n  ['MA-16-LH', 'Main Assy-16-LH']\r\n].map(([code, name]) => ({ code, name }));\r\n\r\nconst CATALOG = [\r\n  { key: 'quality', name: 'Quality', reasons: ['Part NG / reject', 'Dimensi di luar toleransi', 'Cacat visual', 'Torque tidak sesuai'], planned: [] },\r\n  { key: 'logistic', name: 'Logistic', reasons: ['Part habis', 'Part salah kirim', 'Part terlambat', 'Trolley kosong'], planned: [] },\r\n  // planned = downtime terencana: TIDAK memengaruhi efisiensi (dikeluarkan dari waktu yang dihitung)\r\n  { key: 'equipment', name: 'Equipment', reasons: ['Mesin berhenti', 'Tool rusak', 'Sensor error', 'Tekanan angin turun', 'Preventive maintenance'], planned: ['Preventive maintenance'] },\r\n  { key: 'process', name: 'Process', reasons: ['Operator kurang', 'Cycle time terlalu lama', 'Instruksi kerja tidak jelas', 'Setting ulang proses', 'Istirahat', 'Briefing / 5S', 'Ganti model (changeover)', 'Finish production'], planned: ['Istirahat', 'Briefing / 5S', 'Ganti model (changeover)', 'Finish production'] }\r\n];\r\n\r\nconst ACCOUNTS = [\r\n  { email: 'operator1@dummy.local', password: 'operator1', name: 'Operator Satu' },\r\n  { email: 'operator2@dummy.local', password: 'operator2', name: 'Operator Dua' }\r\n];\r\n\r\nconst path = '/andon/' + msg.req.params.action;\r\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\r\nconst reply = (code, payload) => { msg.statusCode = code; msg.payload = payload; return [msg, null]; };\r\n\r\nif (path === '/andon/stations') return reply(200, STATIONS);\r\n\r\nif (path === '/andon/login') {\r\n  const ok = typeof body.email === 'string' && typeof body.password === 'string';\r\n  const acc = ok && ACCOUNTS.find(a => a.email === body.email.trim().toLowerCase() && a.password === body.password);\r\n  if (!acc) return reply(401, { message: 'Incorrect email or password.' });\r\n  // ponytail: token acak seadanya (dummy). Ganti JWT/sesi asli saat login sungguhan.\r\n  const token = Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);\r\n  const tokens = global.get('andonTokens') || {};\r\n  tokens[token] = { email: acc.email, name: acc.name };\r\n  global.set('andonTokens', tokens);\r\n  // sesi operator -> tabel \"Duty Worker\" di dashboard. Login baru di station yang sama menutup sesi lama.\r\n  const station = STATIONS.some(s => s.code === body.station) ? body.station : '-';\r\n  const t = Date.now();\r\n  const sessions = global.get('andonSessions') || [];\r\n  sessions.forEach(x => { if (!x.end && station !== '-' && x.station === station) x.end = t; });\r\n  sessions.push({ token, name: acc.name, station, start: t, end: null });\r\n  global.set('andonSessions', sessions.slice(-60));\r\n  return reply(200, { token, name: acc.name });\r\n}\r\n\r\n// semua di bawah ini wajib login\r\nconst bearer = String(msg.req.headers.authorization || '').replace(/^Bearer /, '');\r\nconst user = (global.get('andonTokens') || {})[bearer];\r\nif (!user) return reply(401, { message: 'Unauthorized' });\r\n\r\nif (path === '/andon/catalog') return reply(200, CATALOG);\r\n\r\nif (path === '/andon/logout') {\r\n  const t = Date.now();\r\n  const sessions = global.get('andonSessions') || [];\r\n  sessions.forEach(x => { if (x.token === bearer && !x.end) x.end = t; });\r\n  global.set('andonSessions', sessions);\r\n  const tokens = global.get('andonTokens') || {};\r\n  delete tokens[bearer];\r\n  global.set('andonTokens', tokens);\r\n  return reply(200, { ok: true });\r\n}\r\n\r\nconst station = String(path === '/andon/state' ? (msg.req.query.station || '') : (body.station || ''));\r\nif (!STATIONS.some(s => s.code === station)) return reply(400, { message: 'Station tidak dikenal' });\r\n\r\nconst now = Date.now();\r\nconst events = (global.get('andonEvents') || []).filter(e => !e.end || now - e.start < 48 * 3600e3);\r\nconst active = events.find(e => !e.end && e.station === station);\r\n\r\nif (path === '/andon/start') {\r\n  const cat = CATALOG.find(c => c.key === body.category);\r\n  if (!cat || !cat.reasons.includes(body.reason)) return reply(400, { message: 'Kategori atau alasan tidak valid' });\r\n  if (active) return reply(409, { message: 'Andon masih aktif di station ini. Stop dulu.' });\r\n  events.push({ station, category: cat.key, reason: body.reason, planned: cat.planned.includes(body.reason), operator: user.name, start: now, end: null });\r\n} else if (path === '/andon/stop') {\r\n  if (!active) return reply(409, { message: 'Tidak ada andon aktif di station ini.' });\r\n  active.end = now;\r\n  active.stoppedBy = user.name;\r\n}\r\n\r\nglobal.set('andonEvents', events);\r\nmsg.station = station;\r\nreturn [null, msg];   // lanjut ke \"ringkasan\" untuk balasan + siaran dashboard\r\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -96,17 +109,17 @@
         "y": 150,
         "wires": [
             [
-                "andonRes"
+                "05f450bd6d4b108a"
             ],
             [
-                "andonSum"
+                "1064ab311aedb25f"
             ]
         ]
     },
     {
-        "id": "andonTick",
+        "id": "5b517b78753013d4",
         "type": "inject",
-        "z": "andonTab",
+        "z": "546194d12c0fcb04",
         "name": "tiap 1 detik",
         "props": [],
         "repeat": "1",
@@ -118,37 +131,144 @@
         "y": 280,
         "wires": [
             [
-                "andonSum"
+                "1064ab311aedb25f"
             ]
         ]
     },
     {
-        "id": "andonSum",
+        "id": "1064ab311aedb25f",
         "type": "function",
-        "z": "andonTab",
-        "name": "ringkasan andon",
-        "func": "// Hitung ringkasan andon per kategori (seluruh line, hari ini WIB).\r\n// Dipanggil: tiap 1 detik (siaran dashboard), dan setelah state/start/stop dari tablet (balasan HTTP + siaran).\r\nconst SEC_PER_MIN = 60;   // dummy cepat: ubah ke 5 supaya menit cepat berubah saat uji\r\nconst CATS = ['quality', 'logistic', 'equipment', 'process'];\r\nconst now = Date.now();\r\n\r\n// Riwayat awal supaya dashboard tidak kosong saat pameran (menit lalu, durasi menit, kategori, alasan, station).\r\n// Ini event andon sungguhan di memori; hapus blok ini bila tidak mau data awal.\r\nif (!global.get('andonSeeded')) {\r\n  global.set('andonSeeded', true);\r\n  const M = 60e3;\r\n  const ev0 = [\r\n    [470, 3, 'equipment', 'Sensor error', 'MA-5-LH'], [395, 5, 'logistic', 'Part habis', 'MA-1-RH'],\r\n    [330, 2, 'quality', 'Part NG / reject', 'MA-3-LH'], [262, 4, 'process', 'Cycle time terlalu lama', 'MA-8-RH'],\r\n    [190, 3, 'logistic', 'Trolley kosong', 'MA-11-LH'], [128, 6, 'equipment', 'Tool rusak', 'MA-6-LH'],\r\n    [95, 2, 'quality', 'Cacat visual', 'MA-3-RH'], [41, 3, 'process', 'Operator kurang', 'MA-12-LH'],\r\n    [17, 2, 'quality', 'Torque tidak sesuai', 'MA-14-LH']\r\n  ].map(([ago, dur, category, reason, station]) => ({ station, category, reason, operator: 'Operator Satu', start: now - ago * M, end: now - (ago - dur) * M }));\r\n  global.set('andonEvents', [...(global.get('andonEvents') || []), ...ev0]);\r\n  global.set('andonSessions', [\r\n    ['Denny', 'MA-1-RH', 400, 330], ['Rijal', 'MA-16-LH', 330, 250], ['Idris', 'MA-9-RH', 250, 180],\r\n    ['Fadillah', 'MA-11-LH', 200, 120], ['Rijal', 'MA-6-LH', 150, 70], ['Moh Wisnu', 'MA-5-LH', 55, null]\r\n  ].map(([name, station, a, b]) => ({ name, station, start: now - a * M, end: b === null ? null : now - b * M })));\r\n}\r\n\r\nconst day = t => new Date(t + 7 * 3600e3).toISOString().slice(0, 10);   // tanggal WIB\r\nconst today = day(now);\r\nconst events = global.get('andonEvents') || [];\r\n\r\nconst dt = {}, secs = {}, running = {};\r\nfor (const c of CATS) { dt[c] = { active: false, count: 0, minutes: 0, station: '-' }; secs[c] = 0; running[c] = []; }\r\n\r\nfor (const e of events) {\r\n  if (e.end && day(e.start) !== today) continue;   // selesai di hari lain: abaikan (andon aktif lintas hari tetap dihitung)\r\n  dt[e.category].count++;\r\n  secs[e.category] += ((e.end || now) - e.start) / 1000;   // aktif: lama berjalan ikut dihitung\r\n  if (!e.end) running[e.category].push(e);\r\n}\r\nfor (const c of CATS) {\r\n  dt[c].minutes = Math.floor(secs[c] / SEC_PER_MIN);\r\n  const r = running[c].sort((a, b) => a.start - b.start);\r\n  if (r.length) {\r\n    dt[c].active = true;\r\n    dt[c].station = r[0].station + (r.length > 1 ? ' +' + (r.length - 1) : '');\r\n  }\r\n}\r\n\r\n// ponytail: 6 angka non-andon ini konstan (dummy). Ganti saat ada sumber data produksi.\r\n// events + workers = data mentah untuk halaman /line (analitik dihitung di frontend).\r\nconst cut = now - 24 * 3600e3;\r\nconst evOut = events.filter(e => (e.end || now) > cut).map(({ station, category, reason, operator, start, end }) => ({ station, category, reason, operator, start, end }));\r\nconst workers = (global.get('andonSessions') || []).slice(-40).map(({ name, station, start, end }) => ({ name, station, start, end }));\r\nconst dashboard = { target: 92, assyOut: 55, efficiency: 90, jph: 12, ct: 5, handover: 34, downtime: dt, now, events: evOut, workers, ts: new Date(now).toISOString() };\r\n\r\nconst toDashboard = { payload: dashboard };   // tanpa req/res: disiarkan ke semua dashboard\r\nif (!msg.res) return [null, toDashboard];     // dari timer\r\n\r\nconst a = events.find(e => !e.end && e.station === msg.station);\r\nmsg.payload = {\r\n  active: a ? { category: a.category, reason: a.reason, start: a.start, operator: a.operator } : null,\r\n  downtime: dt,\r\n  now\r\n};\r\nreturn [msg, toDashboard];\r\n",
+        "z": "546194d12c0fcb04",
+        "name": "ringkasan + simulasi produksi",
+        "func": "// Ringkasan andon + SIMULASI PRODUKSI. Dipanggil: tiap 1 detik (timer), setelah state/start/stop dari tablet,\n// dan dari halaman admin (msg.admin). Simulasi: line menambah Assy Out setiap \"interval\" detik. Selama ADA andon aktif,\n// line BERHENTI (qty tidak bertambah), seperti lapangan. Pengaturan diubah lewat halaman admin /andon-admin.\n// ponytail: simulasi per detik cukup untuk demo. Ganti ke sumber data produksi asli (PLC/MES) bila ada.\nconst SEC_PER_MIN = 60;   // dummy cepat: ubah ke 5 supaya menit cepat berubah saat uji\nconst CATS = ['quality', 'logistic', 'equipment', 'process'];\nconst now = Date.now();\n\n// ---------- pengaturan produksi (disimpan di memori Node-RED) ----------\nconst DEFAULT_CFG = { jph: 12, target: 92, interval: 300, auto: true, ct: 5, handover: 34, startHour: 7 };   // efisiensi TIDAK manual: dihitung dari downtime\nconst day = t => new Date(t + 7 * 3600e3).toISOString().slice(0, 10);   // tanggal WIB\nconst today = day(now);\nlet cfg = Object.assign({}, DEFAULT_CFG, global.get('andonCfg') || {});\nconst startOfDay = h => { const d = new Date(now + 7 * 3600e3); d.setUTCHours(0, 0, 0, 0); return d.getTime() - 7 * 3600e3 + h * 3600e3; };   // jam h WIB hari ini (ms)\nlet prod = global.get('andonProd') || { day: today, assyOut: 0, acc: 0, last: now, stopSec: 0, startAt: null };\nif (prod.day !== today) prod = { day: today, assyOut: 0, acc: 0, last: now, stopSec: 0, startAt: null };   // ganti hari: mulai dari nol, start produksi kembali ke jam standar\nif (!prod.startAt) prod.startAt = startOfDay(cfg.startHour);   // default: jam 07:00 WIB hari ini\n\n// Riwayat awal supaya dashboard tidak kosong saat pameran (menit lalu, durasi menit, kategori, alasan, station).\nif (!global.get('andonSeeded')) {\n  global.set('andonSeeded', true);\n  const M = 60e3;\n  const ev0 = [\n    [470, 3, 'equipment', 'Sensor error', 'MA-5-LH'], [395, 5, 'logistic', 'Part habis', 'MA-1-RH'],\n    [330, 2, 'quality', 'Part NG / reject', 'MA-3-LH'], [262, 4, 'process', 'Cycle time terlalu lama', 'MA-8-RH'],\n    [190, 3, 'logistic', 'Trolley kosong', 'MA-11-LH'], [128, 6, 'equipment', 'Tool rusak', 'MA-6-LH'],\n    [95, 2, 'quality', 'Cacat visual', 'MA-3-RH'], [41, 3, 'process', 'Operator kurang', 'MA-12-LH'],\n    [17, 2, 'quality', 'Torque tidak sesuai', 'MA-14-LH']\n  ].map(([ago, dur, category, reason, station]) => ({ station, category, reason, operator: 'Operator Satu', start: now - ago * M, end: now - (ago - dur) * M }));\n  global.set('andonEvents', [...(global.get('andonEvents') || []), ...ev0]);\n  global.set('andonSessions', [\n    ['Denny', 'MA-1-RH', 400, 330], ['Rijal', 'MA-16-LH', 330, 250], ['Idris', 'MA-9-RH', 250, 180],\n    ['Fadillah', 'MA-11-LH', 200, 120], ['Rijal', 'MA-6-LH', 150, 70], ['Moh Wisnu', 'MA-5-LH', 55, null]\n  ].map(([name, station, a, b]) => ({ name, station, start: now - a * M, end: b === null ? null : now - b * M })));\n  prod.assyOut = 55;   // angka awal sama seperti dashboard lama\n}\n\n// ---------- aksi admin (dari /andon-admin): terapkan dulu, lalu hitung ulang ----------\nif (msg.admin) {\n  const a = msg.admin, n = Number(a.value);\n  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));\n  if (a.type === 'set') {\n    const next = Object.assign({}, cfg);\n    for (const k of ['jph', 'target', 'ct', 'handover']) if (a[k] !== undefined && Number.isFinite(Number(a[k]))) next[k] = clamp(Math.round(Number(a[k])), 0, 100000);\n    if (a.interval !== undefined && Number.isFinite(Number(a.interval))) next.interval = clamp(Math.round(Number(a.interval)), 1, 86400);\n    if (a.startHour !== undefined && Number.isFinite(Number(a.startHour))) { next.startHour = clamp(Number(a.startHour), 0, 23.99); if (!a.keepStart) prod.startAt = startOfDay(next.startHour); }\n    if (a.auto !== undefined) next.auto = !!a.auto;\n    cfg = next; global.set('andonCfg', cfg);\n  } else if (a.type === 'add') {   // tambah qty manual (boleh negatif untuk koreksi)\n    prod.assyOut = Math.max(0, prod.assyOut + Math.round(Number.isFinite(n) ? n : 1));\n  } else if (a.type === 'startNow') {   // mulai produksi sekarang (efisiensi dihitung dari titik ini)\n    prod.startAt = now; prod.acc = 0;\n  } else if (a.type === 'resetQty') {\n    prod.assyOut = 0; prod.acc = 0; prod.stopSec = 0;\n  } else if (a.type === 'resetDowntime') {   // hapus riwayat andon (termasuk yang aktif) -> line jalan lagi\n    global.set('andonEvents', []);\n  } else if (a.type === 'clearActive') {      // akhiri semua andon yang sedang aktif (riwayat tetap)\n    const t = Date.now();\n    global.set('andonEvents', (global.get('andonEvents') || []).map(e => (e.end ? e : Object.assign({}, e, { end: t, stoppedBy: 'admin' }))));\n  } else if (a.type === 'defaults') {\n    cfg = Object.assign({}, DEFAULT_CFG); global.set('andonCfg', cfg); prod.startAt = startOfDay(cfg.startHour);\n  }\n}\n\nconst events = global.get('andonEvents') || [];\nconst live = events.filter(e => !e.end);   // andon yang sedang aktif\n\n// ---------- simulasi: tambah qty tiap interval, kecuali sedang ada andon ----------\nconst dt0 = Math.min(Math.max((now - prod.last) / 1000, 0), 30);   // batasi loncatan waktu (mis. Node-RED sempat mati)\nprod.last = now;\nconst stopped = live.length > 0;\nif (msg.admin) { /* aksi admin tidak memajukan waktu simulasi */ }\nelse if (stopped) prod.stopSec += dt0;\nelse if (cfg.auto && cfg.interval > 0) {\n  prod.acc += dt0;\n  while (prod.acc >= cfg.interval) { prod.acc -= cfg.interval; prod.assyOut++; }\n}\nglobal.set('andonProd', prod);\n\n// ---------- efisiensi OTOMATIS dari downtime ----------\n// 100% = dari start produksi sampai sekarang tidak ada downtime unplanned. Downtime planned dikeluarkan dari waktu yang dihitung.\nconst merge = iv => { const a = iv.filter(x => x[1] > x[0]).sort((p, q) => p[0] - q[0]); const o = []; for (const x of a) { const l = o[o.length - 1]; if (l && x[0] <= l[1]) l[1] = Math.max(l[1], x[1]); else o.push([x[0], x[1]]); } return o; };\nconst clip = (e, lo, hi) => [Math.max(e.start, lo), Math.min(e.end || now, hi)];\nconst len = iv => iv.reduce((n, x) => n + (x[1] - x[0]), 0);\nconst subtract = (iv, cut) => { const o = []; for (const x of iv) { let s = x[0]; for (const c of cut) { if (c[1] <= s || c[0] >= x[1]) continue; if (c[0] > s) o.push([s, c[0]]); s = Math.max(s, c[1]); } if (s < x[1]) o.push([s, x[1]]); } return o; };\nconst calcEff = () => {\n  const lo = Math.min(prod.startAt, now), hi = now;\n  const range = hi - lo;\n  if (range < 1000) return { eff: 100, rangeSec: 0, plannedSec: 0, unplannedSec: 0 };\n  const plannedIv = merge(events.filter(e => e.planned).map(e => clip(e, lo, hi)));\n  const unplannedIv = subtract(merge(events.filter(e => !e.planned).map(e => clip(e, lo, hi))), plannedIv);\n  const planned = len(plannedIv), unplanned = len(unplannedIv), base = range - planned;\n  const eff = base > 0 ? Math.max(0, Math.min(100, (1 - unplanned / base) * 100)) : 100;\n  return { eff: Math.round(eff * 10) / 10, rangeSec: Math.round(range / 1000), plannedSec: Math.round(planned / 1000), unplannedSec: Math.round(unplanned / 1000) };\n};\nconst E = calcEff();\n\n// ---------- ringkasan downtime per kategori (hari ini WIB) ----------\nconst dt = {}, secs = {}, running = {};\nfor (const c of CATS) { dt[c] = { active: false, count: 0, minutes: 0, station: '-' }; secs[c] = 0; running[c] = []; }\nfor (const e of events) {\n  if (e.end && day(e.start) !== today) continue;   // selesai di hari lain: abaikan (andon aktif lintas hari tetap dihitung)\n  dt[e.category].count++;\n  secs[e.category] += ((e.end || now) - e.start) / 1000;   // aktif: lama berjalan ikut dihitung\n  if (!e.end) running[e.category].push(e);\n}\nfor (const c of CATS) dt[c].plannedActive = running[c].some(e => e.planned);\nfor (const c of CATS) {\n  dt[c].minutes = Math.floor(secs[c] / SEC_PER_MIN);\n  const r = running[c].sort((a, b) => a.start - b.start);\n  if (r.length) {\n    dt[c].active = true;\n    dt[c].station = r[0].station + (r.length > 1 ? ' +' + (r.length - 1) : '');\n  }\n}\n\n// events + workers = data mentah untuk halaman /line (analitik dihitung di frontend).\nconst cut = now - 24 * 3600e3;\nconst evOut = events.filter(e => (e.end || now) > cut).map(({ station, category, reason, planned, operator, start, end }) => ({ station, category, reason, planned: !!planned, operator, start, end }));\nconst workers = (global.get('andonSessions') || []).slice(-40).map(({ name, station, start, end }) => ({ name, station, start, end }));\nconst dashboard = {\n  target: cfg.target, assyOut: prod.assyOut, efficiency: E.eff, jph: cfg.jph, ct: cfg.ct, handover: cfg.handover,\n  startAt: prod.startAt, eff: E,\n  running: !stopped, intervalSec: cfg.interval, auto: cfg.auto,\n  downtime: dt, now, events: evOut, workers, ts: new Date(now).toISOString()\n};\nconst toDashboard = { payload: dashboard };   // tanpa req/res: disiarkan ke semua dashboard\n\n// status untuk halaman admin\nconst adminState = {\n  cfg, assyOut: prod.assyOut, stopped, stopSec: Math.round(prod.stopSec || 0), startAt: prod.startAt, eff: E,\n  nextIn: stopped || !cfg.auto ? null : Math.max(0, Math.ceil(cfg.interval - (prod.acc || 0))),\n  active: live.map(e => ({ station: e.station, category: e.category, reason: e.reason, planned: !!e.planned, since: e.start })),\n  eventsToday: events.filter(e => day(e.start) === today).length, now\n};\n\nif (msg.admin) { msg.statusCode = 200; msg.payload = adminState; return [msg, toDashboard]; }   // balasan HTTP admin + siaran\nif (!msg.res) return [null, toDashboard];                                                     // dari timer\n\nconst a = events.find(e => !e.end && e.station === msg.station);\nmsg.payload = {\n  active: a ? { category: a.category, reason: a.reason, planned: !!a.planned, start: a.start, operator: a.operator } : null,\n  downtime: dt,\n  now\n};\nreturn [msg, toDashboard];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 580,
+        "x": 600,
         "y": 200,
         "wires": [
             [
-                "andonRes"
+                "05f450bd6d4b108a"
             ],
             [
-                "andonWs"
+                "414696c1cad945e9"
             ]
         ]
     },
     {
-        "id": "andonRes",
+        "id": "b5129a86b8d48c38",
+        "type": "http in",
+        "z": "546194d12c0fcb04",
+        "name": "GET /andon-admin",
+        "url": "/andon-admin",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 360,
+        "wires": [
+            [
+                "17ac94db50044075"
+            ]
+        ]
+    },
+    {
+        "id": "17ac94db50044075",
+        "type": "function",
+        "z": "546194d12c0fcb04",
+        "name": "halaman admin (HTML)",
+        "func": "// Halaman admin Andon (HTML sederhana, tanpa library). Dilayani di GET /andon-admin.\n// Memanggil: GET /andon-admin/state, POST /andon-admin/act. Hanya untuk jaringan lokal/pameran.\n// ponytail: tanpa login. Tambahkan httpNodeAuth/adminAuth di settings.js kalau Node-RED dibuka ke jaringan yang tidak dipercaya.\nmsg.headers = { 'content-type': 'text/html; charset=utf-8' };\nmsg.statusCode = 200;\nmsg.payload = `<!doctype html>\n<html lang=\"id\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Andon Admin</title>\n<style>\n:root{color-scheme:dark}\n*{box-sizing:border-box}\nbody{margin:0;font:16px/1.45 system-ui,Segoe UI,Arial,sans-serif;background:#0a1220;color:#e2e8f0;padding:20px;max-width:1100px;margin:auto}\nh1{margin:0 0 4px;font-size:26px}h2{margin:0 0 12px;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}\n.sub{color:#94a3b8;margin-bottom:18px}\n.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}\n.card{background:#111c2e;border:1px solid #1e2d45;border-radius:14px;padding:18px}\n.big{font-size:54px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}\n.st{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:5px 14px;font-weight:700;font-size:14px}\n.run{background:#34d39926;color:#34d399}.stop{background:#f8717126;color:#f87171;animation:p 1s infinite alternate}\n@keyframes p{to{opacity:.55}}\nlabel{display:block;font-size:13px;color:#94a3b8;margin:12px 0 4px}\ninput[type=number]{width:100%;background:#0a1220;border:1px solid #2a3b57;color:#e2e8f0;border-radius:10px;padding:10px 12px;font-size:17px}\ninput:focus{outline:2px solid #2dd4bf;border-color:transparent}\n.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}\nbutton{border:0;border-radius:10px;padding:11px 16px;font-size:15px;font-weight:700;cursor:pointer;background:#2dd4bf;color:#042;transition:transform .08s}\nbutton:active{transform:scale(.96)}button.sec{background:#1e2d45;color:#e2e8f0}button.red{background:#f87171;color:#300}button.amb{background:#fbbf24;color:#320}\n.msg{min-height:22px;margin-top:10px;font-size:14px;color:#94a3b8}.ok{color:#34d399}.er{color:#f87171}\nul{margin:8px 0 0;padding-left:18px}.kv{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1e2d45}\n.kv:last-child{border:0}.sw{display:flex;align-items:center;gap:10px;margin-top:12px}\n</style></head><body>\n<h1>Andon Admin</h1><div class=\"sub\">Atur produksi dummy untuk dashboard dan tablet. Perubahan langsung dipakai dashboard.</div>\n<div class=\"grid\">\n <div class=\"card\"><h2>Status produksi</h2>\n  <div class=\"big\" id=\"qty\">-</div><div style=\"color:#94a3b8\">Assy Out hari ini</div>\n  <div style=\"margin:12px 0\"><span id=\"badge\" class=\"st run\">-</span></div>\n  <div class=\"kv\"><span>Target</span><b id=\"vTarget\">-</b></div>\n  <div class=\"kv\"><span>JPH</span><b id=\"vJph\">-</b></div>\n  <div class=\"kv\"><span>Tambah qty berikutnya</span><b id=\"vNext\">-</b></div>\n  <div class=\"kv\"><span>Efisiensi (otomatis)</span><b id=\"vEff\" style=\"color:#2dd4bf\">-</b></div>\n  <div class=\"kv\"><span>Produksi mulai</span><b id=\"vStart\">-</b></div>\n  <div class=\"kv\"><span>Downtime unplanned</span><b id=\"vUnp\" style=\"color:#f87171\">-</b></div>\n  <div class=\"kv\"><span>Downtime planned (tidak mengurangi efisiensi)</span><b id=\"vPln\" style=\"color:#60a5fa\">-</b></div>\n  <div class=\"kv\"><span>Total waktu berhenti</span><b id=\"vStop\">-</b></div>\n  <div class=\"kv\"><span>Andon hari ini</span><b id=\"vEv\">-</b></div>\n  <h2 style=\"margin-top:14px\">Andon aktif</h2><ul id=\"act\"><li style=\"color:#94a3b8;list-style:none;margin-left:-18px\">Tidak ada</li></ul>\n </div>\n <div class=\"card\"><h2>Pengaturan</h2>\n  <label for=\"jph\">JPH (job per jam)</label><input id=\"jph\" type=\"number\" min=\"0\">\n  <label for=\"target\">Target (qty)</label><input id=\"target\" type=\"number\" min=\"0\">\n  <label for=\"interval\">Interval tambah qty (detik)</label><input id=\"interval\" type=\"number\" min=\"1\">\n  <label for=\"ct\">Cycle time (menit)</label><input id=\"ct\" type=\"number\" min=\"0\">\n  <label for=\"sh\">Jam mulai produksi (WIB, 0-23,99)</label><input id=\"sh\" type=\"number\" min=\"0\" max=\"23.99\" step=\"0.25\">\n  <label for=\"ho\">Handover</label><input id=\"ho\" type=\"number\" min=\"0\">\n  <div class=\"sw\"><input id=\"auto\" type=\"checkbox\" style=\"width:22px;height:22px\"><label for=\"auto\" style=\"margin:0;color:#e2e8f0\">Qty bertambah otomatis (berhenti saat ada andon)</label></div>\n  <div class=\"row\" style=\"margin-top:14px\"><button id=\"save\">Simpan</button><button class=\"sec\" id=\"defs\">Kembali ke bawaan</button></div>\n  <h2 style=\"margin-top:18px\">Start produksi</h2>\n  <div style=\"color:#94a3b8;font-size:13px;margin-bottom:8px\">Efisiensi dihitung dari titik start ini: 100% bila tidak ada downtime unplanned. Planned (istirahat, briefing, changeover, preventive maintenance, finish production) tidak mengurangi.</div>\n  <div class=\"row\"><button id=\"startnow\" class=\"amb\">Mulai produksi sekarang</button></div>\n </div>\n <div class=\"card\"><h2>Aksi manual</h2>\n  <div class=\"row\"><button id=\"p1\">+1 qty</button><button id=\"p5\" class=\"sec\">+5</button><button id=\"m1\" class=\"sec\">-1</button></div>\n  <label for=\"n\">Tambah qty (jumlah bebas)</label>\n  <div class=\"row\"><input id=\"n\" type=\"number\" value=\"1\" style=\"max-width:130px\"><button id=\"addn\">Tambah</button></div>\n  <h2 style=\"margin-top:18px\">Reset</h2>\n  <div class=\"row\"><button class=\"amb\" id=\"clr\">Akhiri andon aktif</button><button class=\"red\" id=\"rdt\">Reset downtime</button><button class=\"red\" id=\"rqty\">Reset qty</button></div>\n  <div style=\"color:#94a3b8;font-size:13px;margin-top:8px\"><b>Akhiri andon aktif</b>: line jalan lagi, riwayat tetap. <b>Reset downtime</b>: hapus semua riwayat andon. <b>Reset qty</b>: Assy Out kembali 0.</div>\n </div>\n</div>\n<div class=\"msg\" id=\"msg\"></div>\n<script>\nconst $=id=>document.getElementById(id);let busy=false,dirty=false;\nconst fmt=s=>{s=Math.max(0,Math.round(s));const m=Math.floor(s/60);return m+' mnt '+(s%60)+' dtk'};\nfunction show(s,fromForm){\n $('qty').textContent=s.assyOut;$('vTarget').textContent=s.cfg.target;$('vJph').textContent=s.cfg.jph;\n $('vNext').textContent=s.stopped?'ditahan (andon)':(!s.cfg.auto?'manual':s.nextIn+' dtk');\n $('vStop').textContent=fmt(s.stopSec);$('vEv').textContent=s.eventsToday;\n $('vEff').textContent=s.eff.eff.toFixed(1)+'%';$('vStart').textContent=new Date(s.startAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'Asia/Jakarta'})+' WIB';\n $('vUnp').textContent=fmt(s.eff.unplannedSec);$('vPln').textContent=fmt(s.eff.plannedSec);\n const b=$('badge');b.className='st '+(s.stopped?'stop':'run');b.textContent=s.stopped?'LINE BERHENTI (ANDON)':'LINE BERJALAN';\n $('act').innerHTML=s.active.length?s.active.map(a=>'<li><b>'+a.station+'</b> · '+a.category+' · '+a.reason+' · <span style=\"color:'+(a.planned?'#60a5fa':'#f87171')+'\">'+(a.planned?'PLANNED':'UNPLANNED')+'</span> · '+fmt((s.now-a.since)/1000)+'</li>').join(''):'<li style=\"color:#94a3b8;list-style:none;margin-left:-18px\">Tidak ada</li>';\n if(fromForm||!dirty){$('jph').value=s.cfg.jph;$('target').value=s.cfg.target;$('interval').value=s.cfg.interval;$('ct').value=s.cfg.ct;$('sh').value=s.cfg.startHour;$('ho').value=s.cfg.handover;$('auto').checked=s.cfg.auto;dirty=false}\n}\nfunction note(t,ok){$('msg').textContent=t;$('msg').className='msg '+(ok?'ok':'er');if(ok)setTimeout(()=>{if($('msg').textContent===t)$('msg').textContent=''},3000)}\nasync function load(){try{const r=await fetch('/andon-admin/state');show(await r.json())}catch(e){note('Tidak bisa terhubung ke Node-RED.',false)}}\nasync function act(body,label){if(busy)return;busy=true;try{const r=await fetch('/andon-admin/act',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.message||r.status);show(j,body.type==='set'||body.type==='defaults');note(label+' berhasil.',true)}catch(e){note(label+' gagal: '+e.message,false)}busy=false}\ndocument.querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>dirty=true));\n$('save').onclick=()=>act({type:'set',jph:+$('jph').value,target:+$('target').value,interval:+$('interval').value,ct:+$('ct').value,startHour:+$('sh').value,handover:+$('ho').value,auto:$('auto').checked},'Simpan');\n$('defs').onclick=()=>confirm('Kembalikan semua pengaturan ke bawaan?')&&act({type:'defaults'},'Reset pengaturan');\n$('p1').onclick=()=>act({type:'add',value:1},'+1 qty');$('p5').onclick=()=>act({type:'add',value:5},'+5 qty');$('m1').onclick=()=>act({type:'add',value:-1},'-1 qty');\n$('addn').onclick=()=>act({type:'add',value:+$('n').value},'Tambah qty');\n$('startnow').onclick=()=>confirm('Mulai produksi sekarang? Efisiensi dihitung ulang dari saat ini.')&&act({type:'startNow'},'Mulai produksi');\n$('clr').onclick=()=>act({type:'clearActive'},'Akhiri andon aktif');\n$('rdt').onclick=()=>confirm('Hapus SEMUA riwayat andon (frekuensi dan menit jadi 0)?')&&act({type:'resetDowntime'},'Reset downtime');\n$('rqty').onclick=()=>confirm('Kembalikan Assy Out ke 0?')&&act({type:'resetQty'},'Reset qty');\nload();setInterval(load,2000);\n</script></body></html>`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 360,
+        "wires": [
+            [
+                "83a9c13341213d69"
+            ]
+        ]
+    },
+    {
+        "id": "83a9c13341213d69",
         "type": "http response",
-        "z": "andonTab",
+        "z": "546194d12c0fcb04",
+        "name": "HTML",
+        "statusCode": "",
+        "headers": {
+            "content-type": "text/html; charset=utf-8"
+        },
+        "x": 640,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "bac9140d836d3f00",
+        "type": "http in",
+        "z": "546194d12c0fcb04",
+        "name": "GET /andon-admin/:act",
+        "url": "/andon-admin/:act",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 170,
+        "y": 420,
+        "wires": [
+            [
+                "d237ccaa77f699fd"
+            ]
+        ]
+    },
+    {
+        "id": "cfea5963768c1887",
+        "type": "http in",
+        "z": "546194d12c0fcb04",
+        "name": "POST /andon-admin/:act",
+        "url": "/andon-admin/:act",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 170,
+        "y": 480,
+        "wires": [
+            [
+                "d237ccaa77f699fd"
+            ]
+        ]
+    },
+    {
+        "id": "d237ccaa77f699fd",
+        "type": "function",
+        "z": "546194d12c0fcb04",
+        "name": "api admin (validasi)",
+        "func": "// Rute admin andon: GET /andon-admin/state dan POST /andon-admin/act. Memvalidasi aksi, lalu meneruskan ke \"ringkasan andon\".\n// ponytail: tanpa login. Tambahkan httpNodeAuth di settings.js kalau Node-RED dibuka ke jaringan yang tidak dipercaya.\nconst act = msg.req.params.act;\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nconst bad = (code, message) => { msg.statusCode = code; msg.payload = { message }; return [msg, null]; };\n\nif (msg.req.method === 'GET' && act === 'state') { msg.admin = { type: 'state' }; return [null, msg]; }\nif (msg.req.method === 'POST' && act === 'act') {\n  const T = ['set', 'add', 'startNow', 'resetQty', 'resetDowntime', 'clearActive', 'defaults'];\n  if (!T.includes(body.type)) return bad(400, 'Aksi tidak dikenal.');\n  if (body.type === 'add' && !Number.isFinite(Number(body.value))) return bad(400, 'Jumlah harus angka.');\n  if (body.type === 'set') {\n    for (const k of ['jph', 'target', 'interval', 'ct', 'handover'])\n      if (body[k] !== undefined && (!Number.isFinite(Number(body[k])) || Number(body[k]) < 0)) return bad(400, k + ' harus angka >= 0.');\n    if (body.interval !== undefined && Number(body.interval) < 1) return bad(400, 'Interval minimal 1 detik.');\n    if (body.startHour !== undefined && (!Number.isFinite(Number(body.startHour)) || Number(body.startHour) < 0 || Number(body.startHour) >= 24)) return bad(400, 'Jam mulai harus 0 sampai 23,99.');\n  }\n  msg.admin = body;\n  return [null, msg];\n}\nreturn bad(404, 'Rute admin tidak dikenal.');\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 450,
+        "wires": [
+            [
+                "05f450bd6d4b108a"
+            ],
+            [
+                "1064ab311aedb25f"
+            ]
+        ]
+    },
+    {
+        "id": "05f450bd6d4b108a",
+        "type": "http response",
+        "z": "546194d12c0fcb04",
         "name": "",
         "statusCode": "",
         "headers": {
@@ -159,9 +279,9 @@
         "wires": []
     },
     {
-        "id": "andonWs",
+        "id": "414696c1cad945e9",
         "type": "websocket out",
-        "z": "andonTab",
+        "z": "546194d12c0fcb04",
         "name": "ke dashboard",
         "server": "andonWsL",
         "client": "",
@@ -170,22 +290,9 @@
         "wires": []
     },
     {
-        "id": "qcTab",
-        "type": "tab",
-        "label": "QC Tablet",
-        "disabled": false,
-        "info": "Backend dummy tablet QC (terpisah dari andon): HTTP /qc/:action dan siaran WebSocket /ws/qc ke dashboard."
-    },
-    {
-        "id": "qcWsL",
-        "type": "websocket-listener",
-        "path": "/ws/qc",
-        "wholemsg": "false"
-    },
-    {
-        "id": "qcCmt",
+        "id": "0c95b6daeddcfec3",
         "type": "comment",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "Tablet QC -> HTTP /qc/*  |  Dashboard <- WebSocket /ws/qc (tiap 1 detik + saat ada perubahan)",
         "info": "Aksi: catalog, state (GET); scan, finish, cancel, reset (POST). VIN dummy: VINALVA00000000001..099.",
         "x": 330,
@@ -193,9 +300,9 @@
         "wires": []
     },
     {
-        "id": "qcGet",
+        "id": "1890b73b7804a0e5",
         "type": "http in",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "GET /qc/:action",
         "url": "/qc/:action",
         "method": "get",
@@ -205,14 +312,14 @@
         "y": 120,
         "wires": [
             [
-                "qcCore"
+                "8efcccbeade5806e"
             ]
         ]
     },
     {
-        "id": "qcPost",
+        "id": "0da689851147317e",
         "type": "http in",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "POST /qc/:action",
         "url": "/qc/:action",
         "method": "post",
@@ -222,14 +329,14 @@
         "y": 180,
         "wires": [
             [
-                "qcCore"
+                "8efcccbeade5806e"
             ]
         ]
     },
     {
-        "id": "qcTick",
+        "id": "f2993403aa7b48ce",
         "type": "inject",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "tiap 1 detik",
         "props": [],
         "repeat": "1",
@@ -241,16 +348,16 @@
         "y": 260,
         "wires": [
             [
-                "qcCore"
+                "8efcccbeade5806e"
             ]
         ]
     },
     {
-        "id": "qcCore",
+        "id": "8efcccbeade5806e",
         "type": "function",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "api + ringkasan QC",
-        "func": "// BACKEND DUMMY tablet QC + siaran ke dashboard (/ws/qc). State di memori global Node-RED (hilang saat restart).\n// Terpisah dari andon. Satu function untuk semua: HTTP /qc/:action dan timer 1 detik.\n// ponytail: data dummy dalam kode. Ganti ke database/API asli kalau sudah ada.\nconst STATION = 'Fit Finish';\nconst OPERATOR = 'Operator QC';\nconst SESSION_MS = 15 * 60e3;   // sesi diam > 15 menit dilepas otomatis\nconst M = 60e3;\n\nconst ALL = ['Misassembled', 'Missing Part', 'Over cutting', 'Peel-Off', 'Poor Repair', 'Scratch', 'Stain', 'Tear', 'Touch Mark', 'Wrong Position', 'Wrong specification'];\nconst GEN = ['Misassembled', 'Missing Part', 'Scratch', 'Stain', 'Touch Mark', 'Wrong Position'];\n// [id, nama, berkas foto di tablet QC/public/parts/<x>.png (kosong = ikon), defect khusus + umum]\nconst PARTS = [\n  ['p1', 'Body Cover RH', 'body-cover-rh', ['Gap-Above', ...ALL]],\n  ['p2', 'Body Cover LH', 'body-cover-lh', ['Gap-Above', ...ALL]],\n  ['p3', 'Rear Mud Guard', 'rear-mud-guard', ['Misalignment', ...GEN]],\n  ['p4', 'Speedometer', 'speedometer', ['Gate Blush', ...GEN]],\n  ['p5', 'Steering Cover Rear', 'steering-cover-rear', ['Touching', ...GEN]],\n  ['p6', 'Rear Handle RH', 'rear-handle-rh', ['Damage', ...GEN]],\n  ['p7', 'Keyless SET', 'keyless-set', ['Gap-Above', 'Flush', ...GEN]],\n  ['p8', 'Foot Step LH', 'foot-step-lh', ['Touching', ...GEN]],\n  ['p9', 'Foot Step RH', 'foot-step-rh', ['Abnormal Function', ...GEN]],\n  ['p10', 'Horn', '', ['Abnormal Sound', ...GEN]]\n].map(([id, name, image, d], i) => ({ id, no: i + 1, name, image, defects: [...new Set(d)].sort() }));\nconst PN = Object.fromEntries(PARTS.map(p => [p.id, p.name]));\n\n// VIN dummy: VINALVA + 11 digit, nomor 1..99 valid. Model bergilir. 004 sudah selesai, 005 sedang dikerjakan, 006 menunggu repair.\nconst MODELS = ['Alva N3 Basic LFP 2026 1Batt B2B Grab White', 'Alva N3 Plus LFP 2026 2Batt Matte Black', 'Alva CervoX LFP 2026 1Batt Shadow Black'];\nconst unitOf = vin => {\n  const m = /^VINALVA(\\d{11})$/.exec(vin);\n  const n = m ? parseInt(m[1], 10) : 0;\n  return n >= 1 && n <= 99 ? { vin, model: MODELS[(n - 1) % 3], family: (n - 1) % 3 === 2 ? 'CERVO' : 'N3' } : null;\n};\n\n// Data awal supaya dashboard tidak kosong: 70 inspeksi 9 jam terakhir (30 NG, 40 GOOD). VIN riwayat (nomor > 99) tidak bisa di-scan.\nconst fresh = now => {\n  const w = [['p3', 'Misalignment', 14], ['p4', 'Gate Blush', 11], ['p5', 'Touching', 9], ['p1', 'Gap-Above', 8], ['p6', 'Damage', 7],\n    ['p2', 'Gap-Above', 6], ['p7', 'Gap-Above', 5], ['p8', 'Touching', 4], ['p7', 'Flush', 3], ['p9', 'Abnormal Function', 2]];\n  const flat = [];\n  w.forEach(([partId, defect, c]) => { for (let i = 0; i < c; i++) flat.push({ partId, defect }); });\n  const results = [];\n  let k = 0;\n  for (let i = 0; i < 70; i++) {\n    const bad = i % 7 < 3;\n    const ng = bad ? flat.filter((_, j) => j % 30 === k) : [];\n    if (bad) k++;\n    results.push({ id: 's' + i, vin: 'VINALVA' + String(100 + i).padStart(11, '0'), model: MODELS[i % 3], at: now - (i + 1) * 8 * M,\n      operator: OPERATOR, status: bad ? 'NOT_GOOD' : 'GOOD', ng, seconds: 40 + (i * 7) % 50 });\n  }\n  return {\n    units: { VINALVA00000000004: 'finalized', VINALVA00000000006: 'repair' },\n    sessions: [{ vin: 'VINALVA00000000005', deviceId: 'seed', operator: 'Operator QC 2', start: now, sticky: true }],\n    results\n  };\n};\n\nconst now = Date.now();\nlet S = global.get('qc');\nif (!S) S = fresh(now);\nS.sessions = S.sessions.filter(s => s.sticky || now - s.start < SESSION_MS);\n\nconst summary = () => {\n  const rs = S.results.filter(r => r.at >= now - 24 * 3600e3);\n  const good = rs.filter(r => r.status === 'GOOD').length;\n  const cnt = new Map();\n  for (const r of rs) for (const g of r.ng) { const k = g.partId + '|' + g.defect; cnt.set(k, (cnt.get(k) || 0) + 1); }\n  const top = [...cnt].map(([k, count]) => { const [partId, defect] = k.split('|'); return { partId, part: PN[partId], defect, count }; })\n    .sort((a, b) => b.count - a.count || a.part.localeCompare(b.part)).slice(0, 10);\n  return {\n    station: STATION,\n    totals: { inspected: rs.length, good, notGood: rs.length - good, okRate: rs.length ? Math.round(good / rs.length * 1000) / 10 : 0 },\n    top,\n    byPart: PARTS.map(p => ({ partId: p.id, part: p.name, count: rs.reduce((n, r) => n + r.ng.filter(g => g.partId === p.id).length, 0) })),\n    active: S.sessions.map(s => ({ vin: s.vin, operator: s.operator, since: s.start })),\n    recent: rs.slice(0, 10).map(r => ({ vin: r.vin, model: r.model, at: r.at, status: r.status, ng: r.ng.length })),\n    now, ts: new Date(now).toISOString()\n  };\n};\nconst broadcast = () => ({ payload: summary() });\n\n// timer: hanya siaran ke dashboard\nif (!msg.req) { global.set('qc', S); return [null, broadcast()]; }\n\nconst action = msg.req.params.action;\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nconst reply = (code, payload, bc) => { msg.statusCode = code; msg.payload = payload; global.set('qc', S); return [msg, bc ? broadcast() : null]; };\nconst fail = (code, errCode, message) => reply(code, { code: errCode, message }, false);\n\nif (action === 'catalog') return reply(200, { station: STATION, operator: OPERATOR, parts: PARTS }, false);\nif (action === 'state') return reply(200, summary(), false);\n\nif (action === 'reset') { S = fresh(now); return reply(200, { ok: true }, true); }\n\nconst vin = typeof body.vin === 'string' ? body.vin.trim().toUpperCase() : '';\nconst dev = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 64) : '';\n\nif (action === 'scan') {\n  if (!/^[A-Z0-9]{10,20}$/.test(vin) || !dev) return fail(400, 'VIN_INVALID', 'Format VIN tidak valid. Periksa VIN lalu coba lagi.');\n  const unit = unitOf(vin);\n  if (!unit) return fail(404, 'VIN_NOT_FOUND', 'VIN tidak ditemukan. Periksa VIN dan akses stasiun.');\n  if (S.units[vin] === 'finalized') return fail(409, 'ALREADY_FINALIZED', 'VIN ini sudah selesai diperiksa (GOOD).');\n  if (S.units[vin] === 'repair') return fail(409, 'REPAIR_REQUIRED', 'VIN ini punya NG dan menunggu repair.');\n  const act = S.sessions.find(s => s.vin === vin);\n  if (act && act.deviceId !== dev) return fail(409, 'SESSION_ACTIVE', 'Ada sesi aktif untuk VIN ini di tablet lain.');\n  S.sessions = S.sessions.filter(s => s.deviceId !== dev);   // satu tablet satu sesi\n  S.sessions.push(act || { vin, deviceId: dev, operator: OPERATOR, start: now });\n  return reply(200, { unit }, true);\n}\n\nif (action === 'cancel') {\n  S.sessions = S.sessions.filter(s => !(s.vin === vin && s.deviceId === dev));\n  return reply(200, { ok: true }, true);\n}\n\nif (action === 'finish') {\n  const ses = S.sessions.find(s => s.vin === vin && s.deviceId === dev);\n  if (!ses) return fail(409, 'NO_SESSION', 'Sesi inspeksi tidak ditemukan atau sudah berakhir. Scan VIN lagi.');\n  if (!Array.isArray(body.ng) || body.ng.length > 60) return fail(400, 'NG_INVALID', 'Data NG tidak valid.');\n  const seen = new Set();\n  const ng = [];\n  for (const g of body.ng) {\n    const part = g && typeof g.partId === 'string' ? PARTS.find(p => p.id === g.partId) : null;\n    if (!part || typeof g.defect !== 'string' || !part.defects.includes(g.defect)) return fail(400, 'NG_INVALID', 'Defect tidak dikenal untuk part tersebut.');\n    const k = g.partId + '|' + g.defect;\n    if (!seen.has(k)) { seen.add(k); ng.push({ partId: g.partId, defect: g.defect }); }\n  }\n  const status = ng.length ? 'NOT_GOOD' : 'GOOD';\n  S.results.unshift({ id: now.toString(36), vin, model: unitOf(vin).model, at: now, operator: ses.operator, status, ng, seconds: Math.round((now - ses.start) / 1000) });\n  S.results = S.results.slice(0, 300);\n  S.units[vin] = status === 'GOOD' ? 'finalized' : 'repair';\n  S.sessions = S.sessions.filter(s => s !== ses);\n  return reply(200, { vin, status, ng }, true);\n}\n\nreturn fail(404, 'UNKNOWN_ACTION', 'Aksi tidak dikenal.');\n",
+        "func": "// BACKEND DUMMY tablet QC + siaran ke dashboard (/ws/qc). State di memori global Node-RED (hilang saat restart).\n// Terpisah dari andon. Satu function untuk semua: HTTP /qc/:action dan timer 1 detik.\n// ponytail: data dummy dalam kode. Ganti ke database/API asli kalau sudah ada.\n// Station: daftar yang sama dengan dashboard kualitas. Station tablet dipilih di Setting.\nconst DASH_STATIONS = [['FIT-FINISH', 'Fit Finish'], ['PRE-DYNO', 'Pre Dyno'], ['DYNO', 'Dyno'], ['HLA', 'HLA'], ['RUNNING', 'Running'], ['OFFLINE', 'Offline'], ['FINAL-INSPECTION', 'Final Inspection']];\nconst stationName = code => (DASH_STATIONS.find(x => x[0] === code) || [])[1];\nconst DEFAULT_STATION = 'FIT-FINISH';\n// Akun operator: pilih email dari dropdown, password sama untuk semua (dummy). ponytail: ganti ke login/direktori asli nanti.\nconst PASSWORD = 'qc123';\nconst ACCOUNTS = [\n  ['qc1@dummy.local', 'Operator QC'], ['wisnu@dummy.local', 'Moh Wisnu Aji Saputro'], ['fadillah@dummy.local', 'Fadillah'],\n  ['denny@dummy.local', 'Denny'], ['rijal@dummy.local', 'Rijal'], ['idris@dummy.local', 'Idris']\n].map(([email, name]) => ({ email, name }));\nconst OPERATORS = ACCOUNTS.map(a => a.name);\nconst SESSION_MS = 15 * 60e3;   // sesi diam > 15 menit dilepas otomatis\nconst M = 60e3;\n\n// Aturan VIN (posisi mulai dari 1): karakter 6-7 = model (M1 One, M2 Cervo, M3 N3), karakter 10 = warna (A putih, B biru, C merah, lainnya hitam).\n// Contoh: ALVA0M1XXAXX -> Alva One Putih\nconst MODELS = { M1: 'Alva One', M2: 'Alva Cervo', M3: 'Alva N3' };\nconst COLORS = { A: 'Putih', B: 'Biru', C: 'Merah' };\nconst parseVin = vin => {\n  if (!/^[A-Z0-9]{10,20}$/.test(vin)) return { error: ['VIN_INVALID', 'Format VIN tidak valid. Minimal 10 karakter huruf/angka.'] };\n  const code = vin.slice(5, 7);\n  if (!MODELS[code]) return { error: ['MODEL_UNKNOWN', `Model tidak dikenali (karakter 6-7 = \"${code}\"). Harus M1, M2, atau M3.`] };\n  return { unit: { vin, modelCode: code, model: MODELS[code], color: COLORS[vin[9]] || 'Hitam' } };\n};\n\nconst ALL = ['Misassembled', 'Missing Part', 'Over cutting', 'Peel-Off', 'Poor Repair', 'Scratch', 'Stain', 'Tear', 'Touch Mark', 'Wrong Position', 'Wrong specification'];\nconst GEN = ['Misassembled', 'Missing Part', 'Scratch', 'Stain', 'Touch Mark', 'Wrong Position'];\n// [id, nama, berkas foto di tablet QC/public/parts/<x>.png (kosong = ikon), defect khusus + umum]\nconst PARTS = [\n  ['p1', 'Body Cover RH', 'body-cover-rh', ['Gap-Above', ...ALL]],\n  ['p2', 'Body Cover LH', 'body-cover-lh', ['Gap-Above', ...ALL]],\n  ['p3', 'Rear Mud Guard', 'rear-mud-guard', ['Misalignment', ...GEN]],\n  ['p4', 'Speedometer', 'speedometer', ['Gate Blush', ...GEN]],\n  ['p5', 'Steering Cover Rear', 'steering-cover-rear', ['Touching', ...GEN]],\n  ['p6', 'Rear Handle RH', 'rear-handle-rh', ['Damage', ...GEN]],\n  ['p7', 'Keyless SET', 'keyless-set', ['Gap-Above', 'Flush', ...GEN]],\n  ['p8', 'Foot Step LH', 'foot-step-lh', ['Touching', ...GEN]],\n  ['p9', 'Foot Step RH', 'foot-step-rh', ['Abnormal Function', ...GEN]],\n  ['p10', 'Horn', '', ['Abnormal Sound', ...GEN]]\n].map(([id, name, image, d], i) => ({ id, no: i + 1, name, image, defects: [...new Set(d)].sort() }));\nconst PN = Object.fromEntries(PARTS.map(p => [p.id, p.name]));\n\n// Data awal supaya dashboard tidak kosong: 70 inspeksi 9 jam terakhir (30 NG, 40 GOOD).\nconst fresh = now => {\n  const w = [['p3', 'Misalignment', 14], ['p4', 'Gate Blush', 11], ['p5', 'Touching', 9], ['p1', 'Gap-Above', 8], ['p6', 'Damage', 7],\n    ['p2', 'Gap-Above', 6], ['p7', 'Gap-Above', 5], ['p8', 'Touching', 4], ['p7', 'Flush', 3], ['p9', 'Abnormal Function', 2]];\n  const flat = [];\n  w.forEach(([partId, defect, c]) => { for (let i = 0; i < c; i++) flat.push({ partId, defect }); });\n  const results = [];\n  let k = 0;\n  for (let i = 0; i < 70; i++) {\n    const bad = i % 7 < 3;\n    const ng = bad ? flat.filter((_, j) => j % 30 === k) : [];\n    if (bad) k++;\n    const vin = 'HIST0M' + (i % 3 + 1) + 'XX' + 'ABCD'[i % 4] + String(i).padStart(3, '0');\n    const u = parseVin(vin).unit;\n    results.push({ id: 's' + i, station: 'FIT-FINISH', vin, model: u.model, color: u.color, at: now - (i + 1) * 8 * M,\n      operator: OPERATORS[i % OPERATORS.length], status: bad ? 'NOT_GOOD' : 'GOOD', ng, seconds: 40 + (i * 7) % 50 });\n  }\n  return {\n    // VIN demo untuk mencoba penolakan: selesai (GOOD), menunggu repair, dan sedang dipakai tablet lain\n    units: { DEMO0M1XXA001: 'finalized', DEMO0M3XXC002: 'repair' },\n    sessions: [{ vin: 'DEMO0M2XXB003', deviceId: 'seed', operator: OPERATORS[1], station: 'FIT-FINISH', start: now, sticky: true }],\n    results\n  };\n};\n\n\n// ---------- Quality dashboard (historis, dummy) ----------\n// Bentuk sama dengan halaman asli: per station -> {totalUnit,target,qtyProduct,totalDefect,dpu,okRatio,chart}. Angka dummy deterministik.\nconst PERIODS = ['lastMonth', 'thisMonth', 'lastWeek', 'thisWeek', 'yesterday', 'today'];\nconst KEYS = { M1: 'ONE', M2: 'CERVO', M3: 'N3' };\nconst rnd = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };\nconst r1 = (v, d) => Number(v.toFixed(d));\nconst dashboard = (dateStr) => {\n  const seedDay = [...dateStr].reduce((n, c) => n + c.charCodeAt(0), 0);\n  const stations = {};\n  DASH_STATIONS.forEach(([code], si) => {\n    const qty = {}, def = {}, dpu = {}, ok = {}, chart = { dpu: {}, okRatio: {} };\n    PERIODS.forEach(per => { chart.dpu[per] = {}; chart.okRatio[per] = {}; });\n    Object.values(KEYS).forEach((k, mi) => {\n      const base = 0.55 + 0.35 * rnd(si + 1, mi + 7);          // DPU dasar per station/model\n      const targetDpu = mi === 2 ? 1.4 : 1.2 + 0.2 * mi;\n      const targetOk = mi === 2 ? 5 : 8 + 2 * mi;\n      PERIODS.forEach((per, pi) => {\n        let act = r1(Math.max(0.05, base * (1.15 - pi * 0.1) * (0.9 + 0.25 * rnd(seedDay + pi, si * 3 + mi))), 2);\n        if (mi < 2 && pi < 4 && rnd(si + 9, mi + pi) > 0.45) act = r1(act * (2.5 + 3 * rnd(si + pi, mi + 4)), 2);   // ONE/CERVO kadang melewati target (batang merah)\n        let okv = r1(Math.min(99, 40 + 30 * rnd(si + 2, mi + 3) + pi * 3 + 5 * rnd(seedDay, pi + mi)), 1);\n        if (mi < 2 && pi < 3 && rnd(si + 4, mi + pi + 2) > 0.5) okv = r1(targetOk * (0.4 + 0.5 * rnd(si, pi + mi)), 1);   // sesekali di bawah target OK ratio\n        chart.dpu[per][k] = { actualDpu: act, targetDpu };\n        chart.okRatio[per][k] = { totalOkRatio: okv, targetOkRatio: targetOk };\n      });\n      const q = Math.round(40 + 70 * rnd(si + 5, mi + 11) * (mi === 2 ? 1 : 0.6));\n      qty[k] = q;\n      dpu[k] = chart.dpu.today[k];\n      ok[k] = chart.okRatio.today[k];\n      def[k] = Math.round(q * dpu[k].actualDpu);\n    });\n    const total = Object.values(qty).reduce((a, b) => a + b, 0);\n    stations[code] = { totalUnit: total, target: Math.round(total * 0.97), qtyProduct: qty, totalDefect: def, dpu, okRatio: ok, chart };\n  });\n  return { stations, list: DASH_STATIONS.map(([code, name]) => ({ code, name })) };\n};\n\nconst now = Date.now();\nlet S = global.get('qc');\nif (!S) S = fresh(now);\nS.sessions = S.sessions.filter(s => s.sticky || now - s.start < SESSION_MS);\n\nconst summary = (station = DEFAULT_STATION) => {\n  const rs = S.results.filter(r => r.at >= now - 24 * 3600e3 && (r.station || 'FIT-FINISH') === station);\n  const good = rs.filter(r => r.status === 'GOOD').length;\n  const cnt = new Map();\n  for (const r of rs) for (const g of r.ng) { const k = g.partId + '|' + g.defect; cnt.set(k, (cnt.get(k) || 0) + 1); }\n  const top = [...cnt].map(([k, count]) => { const [partId, defect] = k.split('|'); return { partId, part: PN[partId], defect, count }; })\n    .sort((a, b) => b.count - a.count || a.part.localeCompare(b.part)).slice(0, 10);\n  return {\n    station, stationName: stationName(station),\n    totals: { inspected: rs.length, good, notGood: rs.length - good, okRate: rs.length ? Math.round(good / rs.length * 1000) / 10 : 0 },\n    top,\n    byPart: PARTS.map(p => ({ partId: p.id, part: p.name, count: rs.reduce((n, r) => n + r.ng.filter(g => g.partId === p.id).length, 0) })),\n    byModel: Object.values(MODELS).map(m => { const x = rs.filter(r => r.model === m); return { model: m, inspected: x.length, notGood: x.filter(r => r.status === 'NOT_GOOD').length }; }),\n    active: S.sessions.filter(s => (s.station || 'FIT-FINISH') === station).map(s => ({ vin: s.vin, operator: s.operator, since: s.start })),\n    recent: rs.slice(0, 10).map(r => ({ vin: r.vin, model: r.model, color: r.color, at: r.at, status: r.status, ng: r.ng.length, operator: r.operator })),\n    now, ts: new Date(now).toISOString()\n  };\n};\nconst broadcast = () => ({ payload: summary() });\n\n// timer: hanya siaran ke dashboard\nif (!msg.req) { global.set('qc', S); return [null, broadcast()]; }\n\nconst action = msg.req.params.action;\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nconst reply = (code, payload, bc) => { msg.statusCode = code; msg.payload = payload; global.set('qc', S); return [msg, bc ? broadcast() : null]; };\nconst fail = (code, errCode, message) => reply(code, { code: errCode, message }, false);\n\nconst qStation = code => (DASH_STATIONS.some(x => x[0] === code) ? code : DEFAULT_STATION);\nif (action === 'catalog') return reply(200, { stations: DASH_STATIONS.map(([code, name]) => ({ code, name })), accounts: ACCOUNTS, parts: PARTS }, false);\nif (action === 'state') return reply(200, summary(qStation(String((msg.req.query && msg.req.query.station) || ''))), false);\nif (action === 'dashboard') {\n  const q = String((msg.req.query && msg.req.query.date) || '');\n  const d = /^\\d{4}-\\d{2}-\\d{2}$/.test(q) && !isNaN(Date.parse(q)) ? q : new Date(now + 7 * 3600e3).toISOString().slice(0, 10);\n  const dash = dashboard(d);\n  // FIT-FINISH hari ini = inspeksi nyata dari tablet QC (S.results), supaya tablet dan dashboard nyambung.\n  const day = x => new Date(x + 7 * 3600e3).toISOString().slice(0, 10);\n  const ff = dash.stations['FIT-FINISH'];\n  const rs = S.results.filter(r => day(r.at) === d && (r.station || 'FIT-FINISH') === 'FIT-FINISH');\n  if (rs.length) {\n    ['ONE', 'CERVO', 'N3'].forEach(k => {\n      const m = rs.filter(r => (Object.values(MODELS).includes(r.model) ? { 'Alva One': 'ONE', 'Alva Cervo': 'CERVO', 'Alva N3': 'N3' }[r.model] : '') === k);\n      const q = m.length, nd = m.reduce((n, r) => n + r.ng.length, 0), good = m.filter(r => r.status === 'GOOD').length;\n      ff.qtyProduct[k] = q; ff.totalDefect[k] = nd;\n      const a = q ? Math.round(nd / q * 100) / 100 : 0, o = q ? Math.round(good / q * 1000) / 10 : 0;\n      ff.dpu[k] = { actualDpu: a, targetDpu: ff.dpu[k].targetDpu }; ff.okRatio[k] = { totalOkRatio: o, targetOkRatio: ff.okRatio[k].targetOkRatio };\n      ff.chart.dpu.today[k] = ff.dpu[k]; ff.chart.okRatio.today[k] = ff.okRatio[k];\n    });\n    ff.totalUnit = rs.length; ff.target = Math.round(rs.length * 0.97);\n  }\n  const KMAP = { 'Alva One': 'ONE', 'Alva Cervo': 'CERVO', 'Alva N3': 'N3' };\n  for (const [code] of DASH_STATIONS) {\n    if (code === 'FIT-FINISH') continue;\n    const rr = S.results.filter(r => day(r.at) === d && r.station === code);\n    if (!rr.length) continue;\n    const sx = dash.stations[code];\n    ['ONE', 'CERVO', 'N3'].forEach(k => {\n      const m = rr.filter(r => KMAP[r.model] === k);\n      const q = m.length, nd = m.reduce((n, r) => n + r.ng.length, 0), good = m.filter(r => r.status === 'GOOD').length;\n      sx.qtyProduct[k] = q; sx.totalDefect[k] = nd;\n      const a = q ? Math.round(nd / q * 100) / 100 : 0, o = q ? Math.round(good / q * 1000) / 10 : 0;\n      sx.dpu[k] = { actualDpu: a, targetDpu: sx.dpu[k].targetDpu }; sx.okRatio[k] = { totalOkRatio: o, targetOkRatio: sx.okRatio[k].targetOkRatio };\n      sx.chart.dpu.today[k] = sx.dpu[k]; sx.chart.okRatio.today[k] = sx.okRatio[k];\n    });\n    sx.totalUnit = rr.length; sx.target = Math.round(rr.length * 0.97);\n  }\n  return reply(200, { date: d, ...dash, note: 'Data dummy deterministik. Target = referensi bisnis saat ini.' }, false);\n}\nif (action === 'reset') { S = fresh(now); return reply(200, { ok: true }, true); }\n\nconst vin = typeof body.vin === 'string' ? body.vin.trim().toUpperCase() : '';\nconst dev = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 64) : '';\nconst operator = OPERATORS.includes(body.operator) ? body.operator : null;\nconst bStation = DASH_STATIONS.some(x => x[0] === body.station) ? body.station : null;\n\nif (action === 'login') {\n  const acc = ACCOUNTS.find(a => a.email === String(body.email || '').trim().toLowerCase());\n  if (!acc || body.password !== PASSWORD) return fail(401, 'LOGIN_FAILED', 'Email atau password salah.');\n  return reply(200, { name: acc.name, email: acc.email }, false);\n}\n\nif (action === 'scan') {\n  if (!dev) return fail(400, 'DEVICE_INVALID', 'ID perangkat tidak ada.');\n  if (!operator) return fail(400, 'OPERATOR_INVALID', 'Login operator terlebih dahulu.');\n  if (!bStation) return fail(400, 'STATION_INVALID', 'Station belum diatur. Buka Setting.');\n  const p = parseVin(vin);\n  if (p.error) return fail(400, p.error[0], p.error[1]);\n  if (S.units[vin] === 'finalized') return fail(409, 'ALREADY_FINALIZED', 'VIN ini sudah selesai diperiksa (OK).');\n  if (S.units[vin] === 'repair') return fail(409, 'REPAIR_REQUIRED', 'VIN ini punya NG dan menunggu repair.');\n  const act = S.sessions.find(s => s.vin === vin);\n  if (act && act.deviceId !== dev) return fail(409, 'SESSION_ACTIVE', 'Ada sesi aktif untuk VIN ini di tablet lain.');\n  S.sessions = S.sessions.filter(s => s.deviceId !== dev);   // satu tablet satu sesi\n  S.sessions.push({ vin, deviceId: dev, operator, station: bStation, start: now });\n  return reply(200, { unit: p.unit }, true);\n}\n\nif (action === 'cancel') {\n  S.sessions = S.sessions.filter(s => !(s.vin === vin && s.deviceId === dev));\n  return reply(200, { ok: true }, true);\n}\n\nif (action === 'finish') {\n  const ses = S.sessions.find(s => s.vin === vin && s.deviceId === dev);\n  if (!ses) return fail(409, 'NO_SESSION', 'Sesi inspeksi tidak ditemukan atau sudah berakhir. Scan VIN lagi.');\n  if (!Array.isArray(body.ng) || body.ng.length > 60) return fail(400, 'NG_INVALID', 'Data NG tidak valid.');\n  const seen = new Set();\n  const ng = [];\n  for (const g of body.ng) {\n    const part = g && typeof g.partId === 'string' ? PARTS.find(p => p.id === g.partId) : null;\n    if (!part || typeof g.defect !== 'string' || !part.defects.includes(g.defect)) return fail(400, 'NG_INVALID', 'Defect tidak dikenal untuk part tersebut.');\n    const k = g.partId + '|' + g.defect;\n    if (!seen.has(k)) { seen.add(k); ng.push({ partId: g.partId, defect: g.defect }); }\n  }\n  const u = parseVin(vin).unit;\n  const status = ng.length ? 'NOT_GOOD' : 'GOOD';   // tanpa NG = OK\n  S.results.unshift({ id: now.toString(36), station: ses.station, vin, model: u.model, color: u.color, at: now, operator: ses.operator, status, ng, seconds: Math.round((now - ses.start) / 1000) });\n  S.results = S.results.slice(0, 300);\n  S.units[vin] = status === 'GOOD' ? 'finalized' : 'repair';\n  S.sessions = S.sessions.filter(s => s !== ses);\n  return reply(200, { vin, status, ng }, true);\n}\n\nreturn fail(404, 'UNKNOWN_ACTION', 'Aksi tidak dikenal.');\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -261,17 +368,17 @@
         "y": 190,
         "wires": [
             [
-                "qcRes"
+                "47c39d9f5d93cf0b"
             ],
             [
-                "qcWs"
+                "e779b13df733887d"
             ]
         ]
     },
     {
-        "id": "qcRes",
+        "id": "47c39d9f5d93cf0b",
         "type": "http response",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "",
         "statusCode": "",
         "headers": {
@@ -282,9 +389,9 @@
         "wires": []
     },
     {
-        "id": "qcWs",
+        "id": "e779b13df733887d",
         "type": "websocket out",
-        "z": "qcTab",
+        "z": "883978b2412abdb0",
         "name": "ke dashboard",
         "server": "qcWsL",
         "client": "",
